@@ -1,0 +1,48 @@
+from pywinauto import findwindows
+from pywinauto import application
+import sys
+
+# UTF-8 출력 설정
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+
+# 먼저 실행 중인 모든 윈도우 찾기
+print("실행 중인 윈도우 목록:")
+print("="*50)
+windows = findwindows.find_elements()
+target_found = False
+
+for w in windows:
+    try:
+        title = w.name if w.name else "(제목 없음)"
+        class_name = w.class_name if w.class_name else "(클래스 없음)"
+        print(f"Title: {title}, Class: {class_name}")
+
+        if "연말정산" in title:
+            target_found = True
+            print(f"  >>> 연말정산 관련 윈도우 발견!")
+    except Exception as e:
+        print(f"윈도우 정보 출력 중 오류: {e}")
+
+print("\n" + "="*50 + "\n")
+
+if not target_found:
+    print("⚠️  '연말정산추가자료입력' 윈도우를 찾을 수 없습니다.")
+    print("프로그램이 실행 중인지 확인해주세요.")
+    sys.exit(1)
+
+# 연말정산 윈도우에 연결
+try:
+    print("'연말정산추가자료입력' 윈도우에 연결 중...")
+    app = application.Application(backend="uia")
+    app.connect(title="연말정산추가자료입력")
+
+    dlg = app.window(title="연말정산추가자료입력")
+    print("\n컨트롤 식별자 목록:")
+    print("="*50)
+    dlg.print_control_identifiers()
+
+except Exception as e:
+    print(f"\n❌ 오류 발생: {e}")
+    print("프로그램이 실행 중인지, 정확한 윈도우 제목인지 확인해주세요.")
+    sys.exit(1)
