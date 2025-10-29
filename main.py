@@ -34,10 +34,21 @@ if not target_found:
 # 연말정산 윈도우에 연결
 try:
     print("'연말정산추가자료입력' 윈도우에 연결 중...")
-    app = application.Application(backend="uia")
-    app.connect(title="연말정산추가자료입력")
 
-    dlg = app.window(title="연말정산추가자료입력")
+    # win32 백엔드로 시도 (MFC 애플리케이션에 더 적합)
+    try:
+        app = application.Application(backend="win32")
+        app.connect(title="연말정산추가자료입력")
+        dlg = app.window(title="연말정산추가자료입력")
+        print("✓ win32 백엔드로 연결 성공")
+    except:
+        # win32로 안되면 UIA로 재시도
+        print("win32 백엔드 실패, UIA로 재시도...")
+        app = application.Application(backend="uia")
+        app.connect(title="연말정산추가자료입력")
+        dlg = app.window(title="연말정산추가자료입력")
+        print("✓ UIA 백엔드로 연결 성공")
+
     print("\n컨트롤 식별자 목록:")
     print("="*50)
     dlg.print_control_identifiers()
