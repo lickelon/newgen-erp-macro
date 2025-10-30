@@ -49,8 +49,11 @@ try:
         dlg = app.window(title="사원등록")
         print("✓ UIA 백엔드로 연결 성공")
 
-    print("\n컨트롤 식별자 목록:")
-    print("="*50)
+    # print("\n컨트롤 식별자 목록:")
+    # print("="*50)
+    # dlg.print_control_identifiers()
+    dlg = dlg.child_window(class_name="AfxFrameOrView90u").child_window(class_name="Afx:TabWnd:cd0000:8:10003:10").child_window(title=" 부양가족명세 ", class_name="#32770")
+    # dlg.child_window(title=" 부양가족명세 ", class_name="#32770")
     dlg.print_control_identifiers()
 
 except Exception as e:

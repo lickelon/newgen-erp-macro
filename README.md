@@ -20,10 +20,27 @@ pywinauto를 사용한 Windows 사원등록 프로그램 자동화 도구
 
 ## 빠른 시작
 
-### 탭 자동화
+### ⭐ 성공한 자동화 예제
+
+53회의 시도 끝에 발견한 좌표 독립적 자동화 방법:
+
+```bash
+# 사원 선택 (Attempt 53)
+uv run python examples/example_employee_selection.py
+
+# 탭 전환 (Attempt 52)
+uv run python examples/example_tab_switching.py
+
+# 데이터 입력 (Attempt 43)
+uv run python examples/example_data_input.py
+```
+
+자세한 내용은 **[docs/automation-guide.md](docs/automation-guide.md)** 참조
+
+### 탭 자동화 (기존 좌표 기반)
 
 ```python
-from tab_automation import TabAutomation
+from src.tab_automation import TabAutomation
 
 # 1. 연결
 tab_auto = TabAutomation()
@@ -36,8 +53,8 @@ tab_auto.select_tab("부양가족정보")
 ### 직원 정보 입력
 
 ```python
-from employee_input import EmployeeInput
-from tab_automation import TabAutomation
+from src.employee_input import EmployeeInput
+from src.tab_automation import TabAutomation
 
 # 1. 연결
 emp_input = EmployeeInput()
@@ -62,8 +79,10 @@ print(f"성공: {result['success_count']}/{result['total']}개")
 ### 테스트 실행
 
 ```bash
-# 탭 자동화 테스트
-uv run python tab_automation.py
+# 예제 실행 (성공한 방법들)
+uv run python examples/example_employee_selection.py
+uv run python examples/example_tab_switching.py
+uv run python examples/example_data_input.py
 
 # 전체 테스트
 uv run python test.py
@@ -73,30 +92,45 @@ uv run python test.py
 
 ```
 newgen-erp-macro/
+├── src/                           # 🎯 핵심 자동화 모듈
+│   ├── tab_automation.py          # 탭 자동화 모듈
+│   ├── employee_input.py          # 직원 정보 입력 모듈
+│   ├── message_monitor.py         # 기본 메시지 모니터링
+│   ├── advanced_message_monitor.py # 고급 메시지 모니터링
+│   └── analyze_basic_tab.py       # 기본사항 탭 분석 도구
+├── examples/                      # ✅ 성공한 자동화 예제
+│   ├── example_employee_selection.py  # 사원 선택 (Attempt 53)
+│   ├── example_tab_switching.py       # 탭 전환 (Attempt 52)
+│   ├── example_data_input.py          # 데이터 입력 (Attempt 43)
+│   └── README.md                      # 예제 가이드
 ├── docs/                          # 📚 문서
+│   ├── automation-guide.md        # ⭐ 완전한 자동화 가이드 (53회 시도 결과)
+│   ├── successful-method.md       # 최종 성공 방법 정리
 │   ├── overview.md                # 프로젝트 개요
 │   ├── window-architecture.md     # 윈도우 구조 분석
-│   ├── tab-automation.md          # 탭 자동화 가이드
+│   ├── tab-automation.md          # 탭 자동화 가이드 (기존 좌표 기반)
+│   ├── employee-input.md          # 사원 입력 가이드
 │   ├── testing-framework.md       # 테스트 프레임워크
 │   ├── development-guide.md       # 개발 가이드
 │   └── spy-realtime-monitoring.md # Spy++ 실시간 모니터링
-├── test/                          # 🧪 테스트 모듈
-│   ├── attempt/                   # 시도 스크립트들
-│   │   ├── attempt01_click_children.py
-│   │   ├── attempt06_direct_tab_hwnd.py  # ✅ 성공
-│   │   └── attempt07_robust_tab_find.py
-│   ├── image/                     # 스크린샷 저장소
+├── test/                          # 🧪 테스트 및 개발 이력
+│   ├── attempt/                   # 53개 시도 스크립트들
+│   │   ├── attempt01-42_*.py      # 다양한 방법 시도
+│   │   ├── attempt43_dlg_type_keys.py      # ✅ 데이터 입력 성공
+│   │   ├── attempt47-51_*.py               # 탭 전환 시도 (실패)
+│   │   ├── attempt52_dialog_combinations.py # ✅ 탭 전환 성공
+│   │   └── attempt53_select_employee.py     # ✅ 사원 선택 성공
+│   ├── image/                     # 테스트 스크린샷 저장소
 │   ├── message_log_*.txt          # 메시지 모니터링 로그
 │   └── capture.py                 # 캡처 유틸리티
-├── tab_automation.py              # 🎯 탭 자동화 모듈
-├── employee_input.py              # 👤 직원 정보 입력 모듈
-├── message_monitor.py             # 🔍 기본 메시지 모니터링
-├── advanced_message_monitor.py    # 🔬 고급 메시지 모니터링
-├── test_with_spy.py               # Spy++ 연동 테스트
-├── test_employee_input_with_monitoring.py  # 직원 입력 + 모니터링
-├── analyze_basic_tab.py           # 기본사항 탭 분석 도구
+├── archive/                       # 🗄️ 아카이브
+│   ├── result.txt                 # 윈도우 구조 분석 결과
+│   ├── log.txt                    # 과거 로그
+│   └── *.py                       # 초기 실험 스크립트들
 ├── main.py                        # 메인 자동화 스크립트
 ├── test.py                        # 테스트 실행 스크립트
+├── test_with_spy.py               # Spy++ 연동 테스트
+├── test_employee_input_with_monitoring.py  # 직원 입력 + 모니터링
 ├── pyproject.toml                 # 프로젝트 설정 (uv)
 └── README.md                      # 이 파일
 ```
@@ -131,7 +165,7 @@ uv sync
 ### 탭 자동화 모듈 사용
 
 ```python
-from tab_automation import TabAutomation
+from src.tab_automation import TabAutomation
 
 # 객체 생성 및 연결
 tab_auto = TabAutomation()
@@ -148,23 +182,16 @@ tab_auto.select_tab_by_index(1)  # 0=기본사항, 1=부양가족정보, 2=소�
 ### 테스트 실행
 
 ```bash
-# 탭 자동화 데모
-uv run python tab_automation.py
+# ✅ 성공한 자동화 예제 실행
+uv run python examples/example_employee_selection.py
+uv run python examples/example_tab_switching.py
+uv run python examples/example_data_input.py
 
 # 전체 테스트 스위트
 uv run python test.py
 
 # Spy++와 함께 실시간 모니터링 테스트
 uv run python test_with_spy.py
-
-# 기본 메시지 모니터링 (SendMessage만)
-uv run python message_monitor.py
-
-# 고급 메시지 모니터링 (멀티스레드 + 로그 파일)
-uv run python advanced_message_monitor.py
-
-# 직원 정보 입력
-uv run python employee_input.py
 
 # 직원 정보 입력 + 메시지 모니터링
 uv run python test_employee_input_with_monitoring.py
@@ -186,10 +213,10 @@ uv run python main.py
 
 ## 메시지 모니터링
 
-### 기본 모니터링 (`message_monitor.py`)
+### 기본 모니터링 (`src/message_monitor.py`)
 
 ```python
-from message_monitor import MessageMonitor
+from src.message_monitor import MessageMonitor
 
 # 모니터 생성
 monitor = MessageMonitor(target_hwnd=tab_hwnd)
@@ -210,7 +237,7 @@ messages = monitor.get_messages()
 📤 SEND: [12:04:44.256] HWND=0x000608EE WM_LBUTTONUP wParam=0x00000000 lParam=0x000F0096 (x=150, y=15)
 ```
 
-### 고급 모니터링 (`advanced_message_monitor.py`)
+### 고급 모니터링 (`src/advanced_message_monitor.py`)
 
 - ✅ 멀티스레딩: 모니터링과 자동화 동시 실행
 - ✅ 로그 파일 자동 저장 (`test/message_log_*.txt`)
@@ -233,8 +260,8 @@ messages = monitor.get_messages()
 ### 기본 사용법
 
 ```python
-from employee_input import EmployeeInput
-from tab_automation import TabAutomation
+from src.employee_input import EmployeeInput
+from src.tab_automation import TabAutomation
 
 # 1. 연결
 emp_input = EmployeeInput()
@@ -364,18 +391,37 @@ UserWarning: 32-bit application should be automated using 32-bit Python
 
 ## 📚 문서
 
-### 주요 문서
-- **[프로젝트 개요](docs/overview.md)** - 목표, 제약사항, 현재 상태
-- **[탭 자동화](docs/tab-automation.md)** - 성공한 방법, 실패 사례, 코드 예제
-- **[윈도우 구조](docs/window-architecture.md)** - Spy++ 분석, 컨트롤 정보
-- **[테스트 프레임워크](docs/testing-framework.md)** - attempt 패턴, 스크린샷 검증
-- **[개발 가이드](docs/development-guide.md)** - 디버깅, 트러블슈팅, 다음 단계
-- **[Spy++ 실시간 모니터링](docs/spy-realtime-monitoring.md)** - 자동화 스크립트와 Spy++ 동시 실행
+### 🎯 시작하기
+- **[자동화 가이드](docs/automation-guide.md)** ⭐ - **완전한 좌표 독립적 자동화 가이드** (53회 시도 결과)
+  - 사원 선택 (좌표 없음)
+  - 탭 전환 (좌표 없음)
+  - 데이터 입력 (좌표 없음)
+  - 완전한 자동화 예제
+  - 트러블슈팅
 
-### 빠른 참조
-- 탭 선택 방법: [tab-automation.md](docs/tab-automation.md#성공한-방법-2025-10-30)
-- 컨트롤 찾기: [window-architecture.md](docs/window-architecture.md#안정적인-컨트롤-찾기)
-- 디버깅 팁: [development-guide.md](docs/development-guide.md#디버깅-팁)
+- **[성공한 방법](docs/successful-method.md)** - 최종 성공 방법 정리 (Attempt 43, 52, 53)
+
+### 📖 상세 문서
+
+#### 기본 개념
+- **[프로젝트 개요](docs/overview.md)** - 목표, 제약사항, 현재 상태
+- **[윈도우 구조](docs/window-architecture.md)** - Spy++ 분석, 컨트롤 정보
+
+#### 자동화 모듈
+- **[탭 자동화](docs/tab-automation.md)** - 탭 선택 방법 (기존 좌표 기반)
+- **[사원 입력](docs/employee-input.md)** - 직원 정보 입력 가이드
+
+#### 개발 및 테스트
+- **[테스트 프레임워크](docs/testing-framework.md)** - attempt 패턴, 스크린샷 검증
+- **[개발 가이드](docs/development-guide.md)** - 디버깅, 트러블슈팅
+- **[Spy++ 실시간 모니터링](docs/spy-realtime-monitoring.md)** - 메시지 모니터링 도구
+
+### 🔍 빠른 참조
+- **좌표 없는 사원 선택**: [automation-guide.md](docs/automation-guide.md#사원-선택-좌표-없음)
+- **좌표 없는 탭 전환**: [automation-guide.md](docs/automation-guide.md#탭-전환-좌표-없음)
+- **데이터 입력**: [automation-guide.md](docs/automation-guide.md#데이터-입력-좌표-없음)
+- **완전한 자동화 예제**: [automation-guide.md](docs/automation-guide.md#완전한-자동화-예제)
+- **트러블슈팅**: [automation-guide.md](docs/automation-guide.md#트러블슈팅)
 
 ## 라이선스
 
