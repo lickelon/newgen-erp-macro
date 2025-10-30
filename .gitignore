@@ -48,6 +48,10 @@ test/*.log
 archive/
 *.log
 
+# Documentation images are tracked
+!docs/images/*.png
+!docs/images/*.jpg
+
 # Test data
 *.csv
 *.xlsx
