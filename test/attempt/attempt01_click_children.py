@@ -17,8 +17,8 @@ def run(dlg, capture_func):
     print("="*60)
 
     try:
-        # 탭 컨트롤 찾기
-        tab_control = dlg.child_window(class_name="Afx:TabWnd:330000:8:10003:10", found_index=0)
+        # 탭 컨트롤 찾기 (사원등록 프로그램)
+        tab_control = dlg.child_window(class_name="Afx:TabWnd:cd0000:8:10003:10", found_index=0)
 
         if not tab_control.exists():
             return {"success": False, "message": "탭 컨트롤을 찾을 수 없음"}

@@ -18,35 +18,35 @@ for w in windows:
         class_name = w.class_name if w.class_name else "(클래스 없음)"
         print(f"Title: {title}, Class: {class_name}")
 
-        if "연말정산" in title:
+        if "사원등록" in title:
             target_found = True
-            print(f"  >>> 연말정산 관련 윈도우 발견!")
+            print(f"  >>> 사원등록 윈도우 발견!")
     except Exception as e:
         print(f"윈도우 정보 출력 중 오류: {e}")
 
 print("\n" + "="*50 + "\n")
 
 if not target_found:
-    print("⚠️  '연말정산추가자료입력' 윈도우를 찾을 수 없습니다.")
+    print("⚠️  '사원등록' 윈도우를 찾을 수 없습니다.")
     print("프로그램이 실행 중인지 확인해주세요.")
     sys.exit(1)
 
-# 연말정산 윈도우에 연결
+# 사원등록 윈도우에 연결
 try:
-    print("'연말정산추가자료입력' 윈도우에 연결 중...")
+    print("'사원등록' 윈도우에 연결 중...")
 
     # win32 백엔드로 시도 (MFC 애플리케이션에 더 적합)
     try:
         app = application.Application(backend="win32")
-        app.connect(title="연말정산추가자료입력")
-        dlg = app.window(title="연말정산추가자료입력")
+        app.connect(title="사원등록")
+        dlg = app.window(title="사원등록")
         print("✓ win32 백엔드로 연결 성공")
     except:
         # win32로 안되면 UIA로 재시도
         print("win32 백엔드 실패, UIA로 재시도...")
         app = application.Application(backend="uia")
-        app.connect(title="연말정산추가자료입력")
-        dlg = app.window(title="연말정산추가자료입력")
+        app.connect(title="사원등록")
+        dlg = app.window(title="사원등록")
         print("✓ UIA 백엔드로 연결 성공")
 
     print("\n컨트롤 식별자 목록:")
