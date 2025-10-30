@@ -8,6 +8,7 @@ pywinauto를 사용한 Windows 사원등록 프로그램 자동화 도구
 
 이 프로젝트는 **사원등록** MFC 애플리케이션의 UI 요소를 자동으로 제어하여:
 - ✅ 탭 선택 (마우스 움직임 없음) - **완료**
+- ✅ 직원 정보 입력 (사번, 성명, 주민번호) - **완료**
 - 🔄 부양가족 데이터 입력 - **개발 중**
 
 ## 주요 기능
@@ -30,6 +31,31 @@ tab_auto.connect()
 
 # 2. 탭 선택
 tab_auto.select_tab("부양가족정보")
+```
+
+### 직원 정보 입력
+
+```python
+from employee_input import EmployeeInput
+from tab_automation import TabAutomation
+
+# 1. 연결
+emp_input = EmployeeInput()
+emp_input.connect()
+
+# 2. 기본사항 탭 선택
+tab_auto = TabAutomation()
+tab_auto.connect()
+tab_auto.select_tab("기본사항")
+
+# 3. 직원 정보 입력
+result = emp_input.input_employee(
+    employee_no="2025001",
+    id_number="900101-1234567",
+    name="홍길동"
+)
+
+print(f"성공: {result['success_count']}/{result['total']}개")
 ```
 
 ### 테스트 실행
@@ -62,9 +88,12 @@ newgen-erp-macro/
 │   ├── message_log_*.txt          # 메시지 모니터링 로그
 │   └── capture.py                 # 캡처 유틸리티
 ├── tab_automation.py              # 🎯 탭 자동화 모듈
+├── employee_input.py              # 👤 직원 정보 입력 모듈
 ├── message_monitor.py             # 🔍 기본 메시지 모니터링
 ├── advanced_message_monitor.py    # 🔬 고급 메시지 모니터링
 ├── test_with_spy.py               # Spy++ 연동 테스트
+├── test_employee_input_with_monitoring.py  # 직원 입력 + 모니터링
+├── analyze_basic_tab.py           # 기본사항 탭 분석 도구
 ├── main.py                        # 메인 자동화 스크립트
 ├── test.py                        # 테스트 실행 스크립트
 ├── pyproject.toml                 # 프로젝트 설정 (uv)
@@ -133,6 +162,12 @@ uv run python message_monitor.py
 # 고급 메시지 모니터링 (멀티스레드 + 로그 파일)
 uv run python advanced_message_monitor.py
 
+# 직원 정보 입력
+uv run python employee_input.py
+
+# 직원 정보 입력 + 메시지 모니터링
+uv run python test_employee_input_with_monitoring.py
+
 # 프로그램 정보 확인
 uv run python main.py
 ```
@@ -191,6 +226,72 @@ messages = monitor.get_messages()
 - 시스템 내부 메시지 (WM_NOTIFY 등)는 캡처 안 됨
 - 완전한 후킹은 DLL 인젝션 필요
 - 하지만 디버깅에는 충분함
+
+## 직원 정보 입력
+
+### 기본 사용법
+
+```python
+from employee_input import EmployeeInput
+from tab_automation import TabAutomation
+
+# 1. 연결
+emp_input = EmployeeInput()
+emp_input.connect()
+
+# 2. 기본사항 탭 선택
+tab_auto = TabAutomation()
+tab_auto.connect()
+tab_auto.select_tab("기본사항")
+
+# 3. Edit 컨트롤 찾기
+emp_input.find_edit_controls()
+
+# 4. 직원 정보 입력
+result = emp_input.input_employee(
+    employee_no="2025001",
+    id_number="900101-1234567",
+    name="홍길동"
+)
+
+if result['success']:
+    print(f"✅ {result['success_count']}/{result['total']}개 입력 완료")
+```
+
+### 성공 방법 (Attempt 09)
+
+**핵심 원리:**
+1. SPR32DU80EditHScroll 컨트롤 찾기
+2. WM_SETTEXT (0x000C)로 텍스트 설정
+3. EN_CHANGE (0x0300) 알림을 부모에게 전송
+4. Enter 키 (WM_KEYDOWN/UP) 전송
+
+**입력 가능 필드:**
+- 사번 (employee_no)
+- 주민번호 (id_number)
+- 성명 (name)
+
+**메시지 시퀀스:**
+```
+각 필드마다:
+1. WM_SETTEXT → 텍스트 설정
+2. WM_COMMAND (EN_CHANGE) → 부모에게 변경 알림
+3. WM_KEYDOWN (VK_RETURN) → Enter 키
+```
+
+### 실패한 방법들
+
+- ❌ set_edit_text() 직접 사용 - 권한 오류
+- ❌ SetFocus() - 액세스 거부
+- ❌ WM_SETTEXT만 사용 - 변경 감지 안 됨
+
+### 현재 값 조회
+
+```python
+values = emp_input.get_current_values()
+for item in values:
+    print(f"{item['field']}: {item['value']}")
+```
 
 ## 개발 가이드
 
