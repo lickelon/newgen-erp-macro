@@ -50,9 +50,10 @@ tab_auto.select_tab("기본사항")
 
 # 3. 직원 정보 입력
 result = emp_input.input_employee(
-    employee_no="2025001",
-    id_number="900101-1234567",
-    name="홍길동"
+    employee_no="2025100",
+    name="테스트사원",
+    id_number="920315-1234567",
+    age="33"
 )
 
 print(f"성공: {result['success_count']}/{result['total']}개")
@@ -244,54 +245,64 @@ tab_auto = TabAutomation()
 tab_auto.connect()
 tab_auto.select_tab("기본사항")
 
-# 3. Edit 컨트롤 찾기
-emp_input.find_edit_controls()
+# 3. Spread 컨트롤 찾기
+emp_input.find_spread_control()
 
 # 4. 직원 정보 입력
 result = emp_input.input_employee(
-    employee_no="2025001",
-    id_number="900101-1234567",
-    name="홍길동"
+    employee_no="2025100",
+    name="테스트사원",
+    id_number="920315-1234567",
+    age="33"
 )
 
 if result['success']:
     print(f"✅ {result['success_count']}/{result['total']}개 입력 완료")
 ```
 
-### 성공 방법 (Attempt 09)
+### 확립된 방법 (Attempt 18)
 
 **핵심 원리:**
-1. SPR32DU80EditHScroll 컨트롤 찾기
-2. WM_SETTEXT (0x000C)로 텍스트 설정
-3. EN_CHANGE (0x0300) 알림을 부모에게 전송
-4. Enter 키 (WM_KEYDOWN/UP) 전송
+1. fpUSpread80 Spread #2 (왼쪽 직원 목록) 찾기
+2. WM_LBUTTONDOWN/UP로 셀 클릭하여 선택
+3. WM_CHAR로 각 문자 입력
+4. VK_RETURN으로 Enter 키 전송
 
-**입력 가능 필드:**
-- 사번 (employee_no)
-- 주민번호 (id_number)
-- 성명 (name)
+**입력 가능 필드 및 좌표 매핑:**
+- 사번 (employee_no): x=50, y=30
+- 성명 (name): x=100, y=30
+- 주민번호 (id_number): x=200, y=30
+- 나이 (age): x=320, y=30
 
 **메시지 시퀀스:**
 ```
 각 필드마다:
-1. WM_SETTEXT → 텍스트 설정
-2. WM_COMMAND (EN_CHANGE) → 부모에게 변경 알림
-3. WM_KEYDOWN (VK_RETURN) → Enter 키
+1. WM_LBUTTONDOWN/UP (x, y) → 셀 선택
+2. WM_CHAR (각 문자) → 텍스트 입력
+3. WM_KEYDOWN/UP (VK_RETURN) → Enter 키
 ```
+
+**왜 fpUSpread80인가?**
+- 기본사항 탭의 왼쪽 직원 목록은 fpUSpread80 ActiveX 스프레드시트 컨트롤
+- Edit 컨트롤(SPR32DU80)은 숨겨져 있고 실제로는 작동하지 않음
+- Spread #2 (세 번째 fpUSpread80)가 왼쪽 직원 목록
 
 ### 실패한 방법들
 
+- ❌ SPR32DU80EditHScroll 컨트롤 사용 - 숨겨진 컨트롤, 실제 입력 안 됨
 - ❌ set_edit_text() 직접 사용 - 권한 오류
 - ❌ SetFocus() - 액세스 거부
 - ❌ WM_SETTEXT만 사용 - 변경 감지 안 됨
 
-### 현재 값 조회
+### 발견 과정
 
-```python
-values = emp_input.get_current_values()
-for item in values:
-    print(f"{item['field']}: {item['value']}")
-```
+18회의 시도를 통해 올바른 방법 확립:
+1. Attempt 08-09: SPR32DU80 시도 → 사용자 확인 결과 실패
+2. Attempt 11: WindowFromPoint로 fpUSpread80 발견
+3. Attempt 12-13: fpUSpread80 입력 성공 확인
+4. Attempt 15: 3개의 Spread 컨트롤 발견
+5. Attempt 17: 좌표 매핑 완료
+6. Attempt 18: 완전한 직원 정보 입력 성공
 
 ## 개발 가이드
 

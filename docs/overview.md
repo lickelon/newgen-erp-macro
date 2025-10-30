@@ -43,25 +43,29 @@
 3. ✅ Spy++ 분석으로 윈도우 계층 구조 파악
 4. ✅ fpUSpread80 부양가족 입력 표 발견
 5. ✅ 안정적인 탭 컨트롤 찾기 (부분 매칭)
+6. ✅ **직원 정보 입력 자동화 완료** (18회 시도 끝에 성공)
+   - fpUSpread80 Spread #2 (왼쪽 직원 목록) 사용
+   - 4개 필드 좌표 매핑 완료 (사번, 성명, 주민번호, 나이)
+   - 프로덕션 모듈 `employee_input.py` 작성
+   - 상세 문서 작성 ([employee-input.md](employee-input.md))
 
 ### 🔄 진행 중
-1. **fpUSpread80 컨트롤 자동화**
-   - Farpoint Spread 컨트롤 API 조사
-   - 셀 선택 및 데이터 입력 방법 개발
-
-2. **최종 자동화 모듈 작성**
-   - `tab_automation.py` 완성
-   - 탭 선택 + 데이터 입력 통합
+1. **부양가족 데이터 입력 자동화**
+   - 부양가족정보 탭의 fpUSpread80 컨트롤 조사
+   - 유사한 방법 적용 예정
 
 ## 문서 구조
 
 - **[overview.md](overview.md)** (이 문서) - 프로젝트 개요
 - **[window-architecture.md](window-architecture.md)** - 윈도우 구조 분석
 - **[tab-automation.md](tab-automation.md)** - 탭 자동화 방법
+- **[employee-input.md](employee-input.md)** - 직원 정보 입력 자동화 ✨새로운 문서
 - **[testing-framework.md](testing-framework.md)** - 테스트 프레임워크
 - **[development-guide.md](development-guide.md)** - 개발 가이드
 
 ## 빠른 시작
+
+### 탭 선택
 
 ```python
 from tab_automation import TabAutomation
@@ -77,3 +81,30 @@ tab_auto.select_tab("부양가족정보")
 ```
 
 자세한 내용은 [tab-automation.md](tab-automation.md)를 참고하세요.
+
+### 직원 정보 입력
+
+```python
+from employee_input import EmployeeInput
+from tab_automation import TabAutomation
+
+# 연결 및 탭 선택
+emp_input = EmployeeInput()
+emp_input.connect()
+
+tab_auto = TabAutomation()
+tab_auto.connect()
+tab_auto.select_tab("기본사항")
+
+# 직원 정보 입력
+result = emp_input.input_employee(
+    employee_no="2025100",
+    name="테스트사원",
+    id_number="920315-1234567",
+    age="33"
+)
+
+print(f"✅ {result['success_count']}/4개 입력 완료")
+```
+
+자세한 내용은 [employee-input.md](employee-input.md)를 참고하세요.
