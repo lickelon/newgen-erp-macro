@@ -43,8 +43,16 @@ env/
 # Project specific
 test/image/*.png
 test/image/*.jpg
+test/*.txt
+test/*.log
 archive/
 *.log
+
+# Test data
+*.csv
+*.xlsx
+테스트*.csv
+테스트*.xlsx
 
 # OS
 .DS_Store
