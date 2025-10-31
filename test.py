@@ -31,11 +31,11 @@ def main():
     def capture_func(filename):
         capture_window(hwnd, filename)
 
-    # 시도 70: 포그라운드 솔루션 (최종)
-    print("\n⚠️  시도 70 실행 중...")
-    from test.attempt.attempt70_foreground_solution import run as attempt70
+    # 시도 81: 하이픈 포함 주민등록번호 검색
+    print("\n⚠️  시도 81 실행 중...")
+    from test.attempt.attempt81_find_with_hyphen import run as attempt81
 
-    result = attempt70(dlg, capture_func)
+    result = attempt81(dlg, capture_func)
 
     print("\n" + "="*70)
     print(f"결과: {result['message']}")
