@@ -180,19 +180,57 @@ def _send_copy(self):
 
 ## 권장 해결 순서
 
-1. **1단계:** COM 인터페이스 시도 (옵션 B)
-   - 시간: 1-2시간
-   - 성공률: 중간
-   - 효과: 최고
+1. ~~**1단계:** COM 인터페이스 시도 (옵션 B)~~ ❌ 실패
+   - Attempt 56-57에서 시도
+   - AccessibleObjectFromWindow로 COM 객체 획득까지는 성공
+   - 하지만 c_void_p를 제대로 된 COM 객체로 변환 실패
+   - IAccessible로도 셀 값 읽기 불가능
+   - **결론: fpUSpread80은 표준 COM으로 직접 접근 불가**
 
-2. **2단계:** 창 활성화 방식 구현 (옵션 A)
-   - 시간: 30분
-   - 성공률: 100%
-   - 효과: 보통 (사용자 방해)
+2. ~~**2단계:** UI Automation 시도 (옵션 C)~~ ❌ 실패
+   - Attempt 58에서 시도
+   - UIA 백엔드로 연결은 성공
+   - 하지만 fpUSpread80 컨트롤을 찾을 수 없음
+   - UIA는 Pane만 보이고 Win32 네이티브 컨트롤은 노출되지 않음
+   - **결론: fpUSpread80은 UIA에 노출되지 않는 Win32 전용 컨트롤**
 
-3. **3단계:** 하이브리드 방식
-   - COM 성공 시: COM 사용
-   - COM 실패 시: 창 활성화 방식으로 폴백
+3. **최종 결론:** 백그라운드 복사 불가능 ⚠️
+   - SendMessage: 실패
+   - COM: 실패
+   - UIA: 컨트롤 찾기 실패
+   - **fpUSpread80에서 백그라운드로 값을 읽는 것은 기술적으로 불가능**
+
+---
+
+## 가능한 해결 방안
+
+### 옵션 A: 창 활성화 방식 (구현됨)
+```python
+def _send_copy(self):
+    prev_hwnd = win32gui.GetForegroundWindow()
+    win32gui.SetForegroundWindow(self.dlg.handle)  # 활성화
+    self.left_spread.type_keys("^c")
+    win32gui.SetForegroundWindow(prev_hwnd)  # 복귀
+```
+**장점:** 100% 작동
+**단점:** 사용자 화면 깜빡임, 다른 작업 방해
+
+### 옵션 B: 사용자가 창을 활성화 상태로 유지
+```python
+# 사용자에게 안내
+print("⚠️  사원등록 창을 활성화 상태로 유지하고 다른 작업을 하지 마세요")
+# 활성화 체크
+if win32gui.GetForegroundWindow() != self.dlg.handle:
+    print("ERROR: 사원등록 창이 비활성화되었습니다")
+    return
+```
+**장점:** 구현 간단
+**단점:** 사용자가 자동화 진행 중 다른 작업 불가능
+
+### 권장 방안
+- **짧은 작업 (10명 이하)**: 옵션 B (창 유지)
+- **긴 작업 (10명 이상)**: 옵션 A (창 활성화)
+- **사용자 선택**: `--background-safe` 플래그로 옵션 선택
 
 ---
 

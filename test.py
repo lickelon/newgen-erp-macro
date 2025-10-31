@@ -31,11 +31,11 @@ def main():
     def capture_func(filename):
         capture_window(hwnd, filename)
 
-    # 시도 55: 백그라운드 상태에서 클립보드 복사 테스트
-    print("\n⚠️  시도 55 실행 중...")
-    from test.attempt.attempt55_test_background_copy import run as attempt55
+    # 시도 58: UI Automation 제대로 시도
+    print("\n⚠️  시도 58 실행 중...")
+    from test.attempt.attempt58_uia_proper import run as attempt58
 
-    result = attempt55(dlg, capture_func)
+    result = attempt58(dlg, capture_func)
 
     print("\n" + "="*70)
     print(f"결과: {result['message']}")

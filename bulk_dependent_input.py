@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional, Dict, List, Tuple
 import win32api
 import win32con
+import win32gui
 
 try:
     import pyperclip
@@ -200,14 +201,32 @@ class BulkDependentInput:
 
     def _send_copy(self):
         """
-        클립보드 복사
+        클립보드 복사 (창 활성화 방식)
 
-        fpUSpread80은 SendMessage로 복사 불가능.
-        문서(successful-method.md)에 따르면 dlg.type_keys()만 작동.
+        fpUSpread80은 SendMessage/COM으로 접근 불가능.
+        type_keys는 전역 키보드 입력이므로 활성 창에 입력됨.
+
+        해결책: 사원등록 창을 잠깐 활성화하고 복사 후 원래 창으로 복귀
         """
-        # 방법 1: 스프레드에 직접 전송 시도
-        self.left_spread.type_keys("^c", pause=0.05, set_foreground=False)
-        time.sleep(0.1)
+        # 현재 활성 창 저장
+        prev_hwnd = win32gui.GetForegroundWindow()
+
+        try:
+            # 사원등록 창 활성화
+            win32gui.SetForegroundWindow(self.dlg.handle)
+            time.sleep(0.1)
+
+            # 복사
+            self.left_spread.type_keys("^c", pause=0.05)
+            time.sleep(0.2)
+
+        finally:
+            # 원래 창으로 복귀 (반드시 실행)
+            if prev_hwnd:
+                try:
+                    win32gui.SetForegroundWindow(prev_hwnd)
+                except:
+                    pass  # 원래 창이 닫혔을 수도 있음
 
     def count_employees(self) -> int:
         """
