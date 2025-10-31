@@ -31,11 +31,11 @@ def main():
     def capture_func(filename):
         capture_window(hwnd, filename)
 
-    # 시도 58: UI Automation 제대로 시도
-    print("\n⚠️  시도 58 실행 중...")
-    from test.attempt.attempt58_uia_proper import run as attempt58
+    # 시도 70: 포그라운드 솔루션 (최종)
+    print("\n⚠️  시도 70 실행 중...")
+    from test.attempt.attempt70_foreground_solution import run as attempt70
 
-    result = attempt58(dlg, capture_func)
+    result = attempt70(dlg, capture_func)
 
     print("\n" + "="*70)
     print(f"결과: {result['message']}")
