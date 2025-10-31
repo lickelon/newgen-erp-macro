@@ -11,6 +11,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List, Tuple
+import win32api
+import win32con
 
 try:
     import pyperclip
@@ -39,24 +41,30 @@ class BulkDependentInput:
         self.csv_reader = CSVReader(csv_path)
         self.csv_reader.read()
         self.csv_data = self.csv_reader.group_by_employee()
-        print(f"  ✓ CSV 로드: {len(self.csv_data)}명 사원")
+        print(f"  [OK] CSV 로드: {len(self.csv_data)}명 사원")
 
         # pywinauto 연결
         try:
             self.app = Application(backend='win32')
-            self.dlg = self.app.connect(title_re=".*사원등록.*")
-            print(f"  ✓ 사원등록 프로그램 연결")
+            self.app.connect(title="사원등록")
+            self.dlg = self.app.window(title="사원등록")
+            print(f"  [OK] 사원등록 프로그램 연결")
         except Exception as e:
-            print(f"  ✗ 연결 실패: {e}")
+            print(f"  [X] 연결 실패: {e}")
             print("    → 사원등록 프로그램이 실행 중인지 확인하세요")
             sys.exit(1)
 
-        # 왼쪽 스프레드 찾기
+        # 왼쪽 스프레드 찾기 및 포커스 (한 번만!)
         try:
             self.left_spread = self._find_left_spread()
-            print(f"  ✓ 왼쪽 사원 목록 찾기 완료")
+            print(f"  [OK] 왼쪽 사원 목록 찾기 완료")
+
+            # 포커스 설정 (마우스 움직임을 최소화하기 위해 초기화 시 한 번만)
+            self.left_spread.set_focus()
+            time.sleep(0.3)
+            print(f"  [OK] 왼쪽 사원 목록 포커스 설정")
         except Exception as e:
-            print(f"  ✗ 스프레드 찾기 실패: {e}")
+            print(f"  [X] 스프레드 찾기 실패: {e}")
             sys.exit(1)
 
         # 로그 설정
@@ -64,7 +72,7 @@ class BulkDependentInput:
         log_dir.mkdir(exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.log_file = log_dir / f"bulk_input_{timestamp}.log"
-        print(f"  ✓ 로그 파일: {self.log_file}")
+        print(f"  [OK] 로그 파일: {self.log_file}")
 
     def _find_left_spread(self):
         """
@@ -99,6 +107,108 @@ class BulkDependentInput:
         with open(self.log_file, 'a', encoding='utf-8') as f:
             f.write(log_line + '\n')
 
+    def _make_lparam(self, scan_code: int, extended: bool = False, prev_state: bool = False, transition: bool = False):
+        """
+        WM_KEYDOWN/WM_KEYUP의 lParam 생성
+
+        Args:
+            scan_code: 스캔 코드
+            extended: 확장 키 여부 (Home, End, 화살표 등)
+            prev_state: 이전 키 상태 (WM_KEYUP에서 True)
+            transition: 전환 상태 (WM_KEYUP에서 True)
+
+        Returns:
+            lParam 값
+        """
+        lparam = 1  # 반복 횟수 = 1
+        lparam |= (scan_code << 16)  # 스캔 코드
+        if extended:
+            lparam |= (1 << 24)  # 확장 키 플래그
+        if prev_state:
+            lparam |= (1 << 30)  # 이전 키 상태
+        if transition:
+            lparam |= (1 << 31)  # 전환 상태
+        return lparam
+
+    def _send_key(self, vk_code: int, scan_code: int, extended: bool = False, delay: float = 0.02):
+        """
+        왼쪽 스프레드에 키 전송 (SendMessage 사용, 포커스 불필요)
+
+        Args:
+            vk_code: 가상 키 코드 (VK_DOWN, VK_HOME 등)
+            scan_code: 스캔 코드
+            extended: 확장 키 여부
+            delay: KEYDOWN과 KEYUP 사이의 대기 시간 (초)
+        """
+        hwnd = self.left_spread.handle
+
+        # KEYDOWN
+        lparam_down = self._make_lparam(scan_code, extended=extended)
+        win32api.SendMessage(hwnd, win32con.WM_KEYDOWN, vk_code, lparam_down)
+        time.sleep(delay)
+
+        # KEYUP
+        lparam_up = self._make_lparam(scan_code, extended=extended, prev_state=True, transition=True)
+        win32api.SendMessage(hwnd, win32con.WM_KEYUP, vk_code, lparam_up)
+
+    def _send_ctrl_key(self, vk_code: int, scan_code: int, extended: bool = False):
+        """
+        왼쪽 스프레드에 Ctrl 조합키 전송
+
+        Args:
+            vk_code: 가상 키 코드 (VK_HOME, ord('C') 등)
+            scan_code: 스캔 코드
+            extended: 확장 키 여부
+        """
+        hwnd = self.left_spread.handle
+
+        # Ctrl 누름
+        lparam_ctrl_down = self._make_lparam(0x1D, extended=False)
+        win32api.SendMessage(hwnd, win32con.WM_KEYDOWN, win32con.VK_CONTROL, lparam_ctrl_down)
+        time.sleep(0.02)
+
+        # 키 누름
+        lparam_key_down = self._make_lparam(scan_code, extended=extended)
+        win32api.SendMessage(hwnd, win32con.WM_KEYDOWN, vk_code, lparam_key_down)
+        time.sleep(0.02)
+
+        # 키 뗌
+        lparam_key_up = self._make_lparam(scan_code, extended=extended, prev_state=True, transition=True)
+        win32api.SendMessage(hwnd, win32con.WM_KEYUP, vk_code, lparam_key_up)
+        time.sleep(0.02)
+
+        # Ctrl 뗌
+        lparam_ctrl_up = self._make_lparam(0x1D, extended=False, prev_state=True, transition=True)
+        win32api.SendMessage(hwnd, win32con.WM_KEYUP, win32con.VK_CONTROL, lparam_ctrl_up)
+
+    # 편의 메서드들
+    def _send_home(self):
+        """HOME 키 전송"""
+        self._send_key(win32con.VK_HOME, 0x47, extended=True)
+
+    def _send_down(self):
+        """DOWN 키 전송"""
+        self._send_key(win32con.VK_DOWN, 0x50, extended=True)
+
+    def _send_right(self):
+        """RIGHT 키 전송"""
+        self._send_key(win32con.VK_RIGHT, 0x4D, extended=True)
+
+    def _send_ctrl_home(self):
+        """Ctrl+Home 전송"""
+        self._send_ctrl_key(win32con.VK_HOME, 0x47, extended=True)
+
+    def _send_copy(self):
+        """
+        클립보드 복사
+
+        fpUSpread80은 SendMessage로 복사 불가능.
+        문서(successful-method.md)에 따르면 dlg.type_keys()만 작동.
+        """
+        # 방법 1: 스프레드에 직접 전송 시도
+        self.left_spread.type_keys("^c", pause=0.05, set_foreground=False)
+        time.sleep(0.1)
+
     def count_employees(self) -> int:
         """
         왼쪽 목록의 총 사원 수 확인
@@ -106,13 +216,53 @@ class BulkDependentInput:
         Returns:
             사원 수
         """
-        # TODO: 구현 필요
-        # 1. 왼쪽 스프레드 포커스
-        # 2. HOME 키로 처음으로
-        # 3. 루프: Ctrl+C로 복사 → 빈 값 만날 때까지 DOWN
-        # 4. HOME으로 다시 처음으로
-        self.log("WARNING", "count_employees() 미구현 - 임시로 0 반환")
-        return 0
+        # 1. Ctrl+Home으로 첫 번째 셀로 이동
+        self._send_ctrl_home()
+        time.sleep(0.2)
+
+        # 2. RIGHT로 사번 칸으로 이동 (첫 번째 칸은 체크박스)
+        self._send_right()
+        time.sleep(0.2)
+
+        # 3. 루프: Ctrl+C로 복사 → 이전과 같은 값이면 중단
+        count = 0
+        max_iterations = 1000  # 무한루프 방지
+        prev_value = None
+        same_count = 0
+        max_same = 2  # 같은 값이 2번 연속이면 끝에 도달
+
+        for _ in range(max_iterations):
+            # Ctrl+C로 현재 셀 복사
+            self._send_copy()
+            time.sleep(0.2)
+
+            # 클립보드 읽기
+            value = pyperclip.paste().strip()
+
+            # 빈 값이면 중단
+            if not value:
+                break
+
+            # 이전 값과 같으면 카운트 증가 (끝에 도달한 것으로 판단)
+            if value == prev_value:
+                same_count += 1
+                if same_count >= max_same:
+                    break
+            else:
+                same_count = 0
+
+            prev_value = value
+            count += 1
+
+            # DOWN 키로 다음 행
+            self._send_down()
+            time.sleep(0.1)
+
+        # 4. Ctrl+Home으로 다시 처음으로
+        self._send_ctrl_home()
+        time.sleep(0.2)
+
+        return count
 
     def read_current_employee(self) -> Tuple[str, str]:
         """
@@ -121,13 +271,32 @@ class BulkDependentInput:
         Returns:
             (사번, 이름) 튜플
         """
-        # TODO: 구현 필요
-        # 1. 포커스 확인
-        # 2. HOME → Ctrl+C → 사번
-        # 3. RIGHT → Ctrl+C → 이름
-        # 4. HOME으로 다시 처음
-        self.log("WARNING", "read_current_employee() 미구현")
-        return ("", "")
+        # 1. HOME → RIGHT → Ctrl+C → 사번
+        self._send_home()
+        time.sleep(0.2)
+
+        self._send_right()  # 체크박스 건너뛰기
+        time.sleep(0.2)
+
+        self._send_copy()
+        time.sleep(0.2)
+
+        employee_no = pyperclip.paste().strip()
+
+        # 2. RIGHT → Ctrl+C → 이름
+        self._send_right()
+        time.sleep(0.2)
+
+        self._send_copy()
+        time.sleep(0.2)
+
+        employee_name = pyperclip.paste().strip()
+
+        # 3. HOME으로 다시 처음
+        self._send_home()
+        time.sleep(0.2)
+
+        return (employee_no, employee_name)
 
     def input_dependent(self, dep: DependentData) -> bool:
         """
@@ -204,9 +373,9 @@ class BulkDependentInput:
         for dep in dependents:
             if self.input_dependent(dep):
                 success_count += 1
-                self.log("SUCCESS", f"    ✓ {dep.name} (관계: {dep.relationship_code})")
+                self.log("SUCCESS", f"    [OK] {dep.name} (관계: {dep.relationship_code})")
             else:
-                self.log("ERROR", f"    ✗ {dep.name} 실패")
+                self.log("ERROR", f"    [X] {dep.name} 실패")
 
         self.log("INFO", f"  → 완료: {success_count}/{len(dependents)}")
 
@@ -240,12 +409,7 @@ class BulkDependentInput:
         if dry_run:
             self.log("INFO", "!!! DRY RUN 모드 - 실제 입력 안함 !!!")
 
-        # 1. 왼쪽 목록 포커스
-        self.log("INFO", "왼쪽 사원 목록 포커스...")
-        self.left_spread.set_focus()
-        time.sleep(0.5)
-
-        # 2. 사원 수 확인
+        # 1. 사원 수 확인 (포커스는 이미 초기화 시 설정됨)
         self.log("INFO", "사원 수 확인 중...")
         total_employees = self.count_employees()
         self.log("INFO", f"왼쪽 목록 사원 수: {total_employees}")
@@ -262,11 +426,11 @@ class BulkDependentInput:
 
         # 4. 시작 위치로 이동
         self.log("INFO", "시작 위치로 이동...")
-        self.dlg.type_keys("{HOME}", pause=0.1)
+        self._send_ctrl_home()
         time.sleep(0.3)
 
         for _ in range(skip):
-            self.dlg.type_keys("{DOWN}", pause=0.1)
+            self._send_down()
             time.sleep(0.1)
 
         # 5. 각 사원 처리
@@ -287,7 +451,7 @@ class BulkDependentInput:
 
             # 다음 사원으로
             if i < end_idx - 1:
-                self.dlg.type_keys("{DOWN}", pause=0.1)
+                self._send_down()
                 time.sleep(0.3)
 
         # 6. 결과 집계

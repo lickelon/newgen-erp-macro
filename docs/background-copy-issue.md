@@ -1,0 +1,210 @@
+# fpUSpread80 백그라운드 복사 문제
+
+## 문제 상황
+
+`bulk_dependent_input.py` 작업 중 발견된 문제:
+- 왼쪽 사원 목록(fpUSpread80)에서 클립보드 복사를 통해 사번과 이름을 읽어야 함
+- 다른 작업을 하면서 백그라운드에서 자동화를 실행하고 싶음
+- 하지만 fpUSpread80은 백그라운드에서 복사가 불가능함
+
+## 테스트 결과
+
+### Attempt 54: 복사 메서드 비교 (활성화 상태)
+
+**테스트 환경:** 사원등록 창이 활성화된 상태
+
+| 방법 | 결과 | 복사된 값 |
+|------|------|-----------|
+| WM_COPY 메시지 | ❌ 실패 | 변화 없음 |
+| SendMessage Ctrl+C | ❌ 실패 | 변화 없음 |
+| left_spread.type_keys('^c', set_foreground=False) | ✅ 성공 | '0' |
+| left_spread.type_keys('^c', set_foreground=True) | ✅ 성공 | '0' |
+| dlg.type_keys('^c') | ✅ 성공 | '0' |
+
+**결론:** `type_keys` 방식만 작동
+
+---
+
+### Attempt 55: 백그라운드 복사 테스트
+
+**테스트 환경:** 메모장을 활성화하여 사원등록 창을 비활성화
+
+| 방법 | 결과 | 복사된 값 | 문제점 |
+|------|------|-----------|--------|
+| SendMessage Ctrl+C | ❌ 실패 | 'BACKGROUND_TEST' | 아무 효과 없음 |
+| left_spread.type_keys('^c', set_foreground=False) | ❌ 실패 | '2' | 메모장 제목에서 복사됨! |
+
+**결론:** 백그라운드 복사 불가능
+
+---
+
+## 핵심 발견사항
+
+### 1. fpUSpread80의 특성
+
+- **SendMessage로 복사 불가**: WM_COPY, WM_KEYDOWN 등 메시지 전송이 작동하지 않음
+- **type_keys 의존**: pywinauto의 `type_keys()`만 작동
+- **전역 키보드 입력**: `type_keys`는 시스템 전역으로 키를 전송하므로 활성 창에 입력됨
+
+### 2. 문제 시나리오
+
+```
+사용자가 콘솔 창을 보고 있는 상태에서:
+→ bulk_dependent_input.py가 Ctrl+C 전송
+→ 콘솔 창에 Ctrl+C가 입력됨
+→ 프로그램 중단됨 💥
+```
+
+### 3. 시도했던 방법들
+
+```python
+# ❌ 실패: WM_COPY 메시지
+win32api.SendMessage(hwnd, 0x0301, 0, 0)
+
+# ❌ 실패: SendMessage로 Ctrl+C
+lparam = 1 | (0x2E << 16)
+win32api.SendMessage(hwnd, win32con.WM_KEYDOWN, ord('C'), lparam)
+
+# ✅ 성공 (활성화 상태에서만)
+left_spread.type_keys("^c", set_foreground=False)
+
+# ❌ 실패 (백그라운드에서)
+# → 활성 창에 Ctrl+C가 전송됨
+```
+
+---
+
+## 해결 방안
+
+### 옵션 A: 창 활성화 방식 (확실하지만 방해됨)
+
+```python
+def _copy_with_activation(self):
+    """창을 잠깐 활성화하고 복사"""
+    # 현재 활성 창 저장
+    prev_hwnd = win32gui.GetForegroundWindow()
+
+    # 사원등록 창 활성화
+    win32gui.SetForegroundWindow(self.dlg.handle)
+    time.sleep(0.1)
+
+    # 복사
+    self.left_spread.type_keys("^c", pause=0.05)
+    time.sleep(0.2)
+    value = pyperclip.paste()
+
+    # 원래 창으로 복귀
+    win32gui.SetForegroundWindow(prev_hwnd)
+
+    return value
+```
+
+**장점:**
+- ✅ 확실하게 작동
+- ✅ 구현 간단
+
+**단점:**
+- ❌ 사용자 화면에 창이 깜빡임
+- ❌ 다른 작업 방해
+
+---
+
+### 옵션 B: COM 인터페이스 (추천) 🌟
+
+Farpoint Spread는 ActiveX 컨트롤이므로 COM 인터페이스를 제공할 가능성이 높음.
+
+```python
+import win32com.client
+
+# COM 객체로 접근
+spread = win32com.client.Dispatch(hwnd)
+
+# 셀 값 직접 읽기
+value = spread.GetText(col, row)  # 메서드명은 확인 필요
+```
+
+**장점:**
+- ✅ 백그라운드에서 작동
+- ✅ 클립보드 사용 안 함
+- ✅ 사용자 방해 없음
+
+**단점:**
+- ❓ COM 인터페이스 메서드를 찾아야 함
+- ❓ 문서가 없을 수 있음
+
+**다음 단계:**
+1. fpUSpread80의 COM 인터페이스 확인
+2. 셀 값 읽기 메서드 찾기
+3. 테스트 스크립트 작성
+
+---
+
+### 옵션 C: UI Automation
+
+```python
+from pywinauto import uia
+
+# UIA 백엔드로 재연결
+app = Application(backend='uia')
+# ...
+```
+
+**장점:**
+- ✅ 백그라운드 접근 가능성
+
+**단점:**
+- ❌ fpUSpread80은 Win32 컨트롤이므로 UIA 지원 제한적
+- ❌ 이미 시도했으나 효과 없었음 (attempt04_uia_backend.py)
+
+---
+
+## 현재 코드 상태
+
+### bulk_dependent_input.py
+
+```python
+def _send_copy(self):
+    """
+    클립보드 복사
+
+    ⚠️  문제: 백그라운드에서 작동하지 않음
+    type_keys는 전역 키보드 입력이므로 활성 창에 Ctrl+C 전송
+    """
+    self.left_spread.type_keys("^c", pause=0.05, set_foreground=False)
+    time.sleep(0.1)
+```
+
+**현재 상태:** 사원등록 창이 활성화되어 있으면 작동하지만, 다른 창이 활성화되면 실패
+
+---
+
+## 권장 해결 순서
+
+1. **1단계:** COM 인터페이스 시도 (옵션 B)
+   - 시간: 1-2시간
+   - 성공률: 중간
+   - 효과: 최고
+
+2. **2단계:** 창 활성화 방식 구현 (옵션 A)
+   - 시간: 30분
+   - 성공률: 100%
+   - 효과: 보통 (사용자 방해)
+
+3. **3단계:** 하이브리드 방식
+   - COM 성공 시: COM 사용
+   - COM 실패 시: 창 활성화 방식으로 폴백
+
+---
+
+## 참고 파일
+
+- 테스트 스크립트: `test/attempt/attempt54_test_copy_methods.py`
+- 백그라운드 테스트: `test/attempt/attempt55_test_background_copy.py`
+- 메인 구현: `bulk_dependent_input.py`
+- 관련 문서: `docs/successful-method.md`
+
+---
+
+**작성일:** 2025-10-31
+**테스트 환경:** Windows 11, Python 3.14, pywinauto 0.6.8
+**대상 애플리케이션:** 케이렙 365 - 사원등록

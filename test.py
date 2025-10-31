@@ -31,11 +31,11 @@ def main():
     def capture_func(filename):
         capture_window(hwnd, filename)
 
-    # 시도 7: 안정적인 탭 컨트롤 찾기
-    print("\n⚠️  시도 7 실행 중...")
-    from test.attempt.attempt07_robust_tab_find import run as attempt07
+    # 시도 55: 백그라운드 상태에서 클립보드 복사 테스트
+    print("\n⚠️  시도 55 실행 중...")
+    from test.attempt.attempt55_test_background_copy import run as attempt55
 
-    result = attempt07(dlg, capture_func)
+    result = attempt55(dlg, capture_func)
 
     print("\n" + "="*70)
     print(f"결과: {result['message']}")
