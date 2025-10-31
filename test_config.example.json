@@ -1,0 +1,13 @@
+{
+  "test_data": {
+    "employee": {
+      "empno": "0000000000",
+      "name": "홍길동"
+    },
+    "resident_numbers": {
+      "with_hyphen": "123456-1234567",
+      "without_hyphen": "12345612345567"
+    },
+    "description": "실제 테스트 시에는 이 파일을 test_config.json으로 복사하고 실제 값을 입력하세요."
+  }
+}

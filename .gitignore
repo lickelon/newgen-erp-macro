@@ -58,6 +58,15 @@ archive/
 테스트*.csv
 테스트*.xlsx
 
+# Test configuration (sensitive data)
+test_config.json
+test_config.local.json
+.env
+.env.local
+
+# But allow the example template
+!test_config.example.json
+
 # OS
 .DS_Store
 Thumbs.db
