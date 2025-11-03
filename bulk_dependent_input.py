@@ -28,15 +28,17 @@ from src.csv_reader import CSVReader, DependentData
 class BulkDependentInput:
     """부양가족 대량 입력 자동화"""
 
-    def __init__(self, csv_path: str, verbose: bool = False):
+    def __init__(self, csv_path: str, verbose: bool = False, global_delay: float = 1.0):
         """
         초기화 및 연결
 
         Args:
             csv_path: CSV 파일 경로
             verbose: True면 DEBUG 로그 출력, False면 숨김 (기본값: False)
+            global_delay: 전역 지연 시간 배율 (0.5~2.0, 기본값: 1.0)
         """
         self.verbose = verbose
+        self.global_delay = max(0.5, min(2.0, global_delay))  # 0.5~2.0 범위로 제한
         self.stop_requested = False  # 중지 플래그
         self.pause_press_count = 0  # Pause 키 연속 누름 횟수
         self.last_pause_time = 0  # 마지막 Pause 키 누름 시간
@@ -58,11 +60,12 @@ class BulkDependentInput:
             self.app.connect(title="사원등록")
             self.dlg = self.app.window(title="사원등록")
             print(f"  [OK] 사원등록 프로그램 연결")
-            print(f"  ⚠️  부양가족정보 탭이 선택되어 있는지 확인하세요!")
         except Exception as e:
-            print(f"  [X] 연결 실패: {e}")
-            print("    → 사원등록 프로그램이 실행 중인지 확인하세요")
-            sys.exit(1)
+            error_msg = "❌ 사원등록 창을 찾을 수 없습니다!\n\n"
+            error_msg += "다음을 확인하세요:\n"
+            error_msg += "1. 사원등록 프로그램이 실행되어 있는지\n"
+            error_msg += "2. 창 제목이 정확히 '사원등록'인지"
+            raise Exception(error_msg)
 
         # 왼쪽/오른쪽 스프레드 찾기 및 포커스 (한 번만!)
         try:
@@ -72,11 +75,11 @@ class BulkDependentInput:
 
             # 왼쪽 포커스 설정 (마우스 움직임을 최소화하기 위해 초기화 시 한 번만)
             self.left_spread.set_focus()
-            time.sleep(0.3)
+            time.sleep(0.3 * self.global_delay)
             print(f"  [OK] 왼쪽 사원 목록 포커스 설정")
         except Exception as e:
-            print(f"  [X] 스프레드 찾기 실패: {e}")
-            sys.exit(1)
+            # 이미 명확한 에러 메시지가 포함되어 있으므로 그대로 전달
+            raise
 
         # 로그 설정
         log_dir = Path("logs")
@@ -94,7 +97,11 @@ class BulkDependentInput:
         """
         spreads = self.dlg.children(class_name="fpUSpread80")
         if not spreads:
-            raise Exception("fpUSpread80 컨트롤을 찾을 수 없습니다")
+            error_msg = "❌ 스프레드 컨트롤을 찾을 수 없습니다!\n\n"
+            error_msg += "다음을 확인하세요:\n"
+            error_msg += "1. 사원등록 창이 제대로 열려있는지\n"
+            error_msg += "2. '부양가족정보' 탭이 선택되어 있는지"
+            raise Exception(error_msg)
 
         # X 좌표로 정렬하여 가장 왼쪽 반환
         spreads.sort(key=lambda s: s.rectangle().left)
@@ -108,8 +115,14 @@ class BulkDependentInput:
             pywinauto wrapper object
         """
         spreads = self.dlg.children(class_name="fpUSpread80")
+
         if len(spreads) < 2:
-            raise Exception("오른쪽 스프레드를 찾을 수 없습니다")
+            error_msg = "❌ 부양가족상세 탭이 열려있지 않습니다!\n\n"
+            error_msg += "다음을 확인하세요:\n"
+            error_msg += "1. 사원등록 창에서 '부양가족정보' 탭을 선택했는지\n"
+            error_msg += "2. 오른쪽 부양가족상세 영역이 표시되어 있는지\n\n"
+            error_msg += f"(현재 스프레드 개수: {len(spreads)}개, 필요: 2개 이상)"
+            raise Exception(error_msg)
 
         # X 좌표로 정렬하여 가장 오른쪽 반환
         spreads.sort(key=lambda s: s.rectangle().left)
@@ -203,7 +216,21 @@ class BulkDependentInput:
         # 어느 스프레드인지 구분
         control_name = "LEFT " if control == self.left_spread else "RIGHT"
         self.log("DEBUG", f"[{control_name}] type_keys: '{keys}'")
-        control.type_keys(keys, **kwargs)
+
+        try:
+            control.type_keys(keys, **kwargs)
+        except Exception as e:
+            # ElementNotVisible 예외를 명확한 메시지로 변환
+            if "ElementNotVisible" in str(type(e).__name__):
+                error_msg = "❌ 부양가족상세 탭이 열려있지 않습니다!\n\n"
+                error_msg += "다음을 확인하세요:\n"
+                error_msg += "1. 사원등록 창에서 '부양가족정보' 탭을 선택했는지\n"
+                error_msg += "2. 오른쪽 부양가족상세 영역이 표시되어 있는지\n"
+                error_msg += "3. 실행 중에 다른 탭으로 이동하지 않았는지"
+                raise Exception(error_msg)
+            else:
+                # 다른 예외는 그대로 전달
+                raise
 
     def _type_keys_with_delay(self, control, keys: str, sleep_after: float = 0.1, **kwargs):
         """
@@ -212,11 +239,11 @@ class BulkDependentInput:
         Args:
             control: pywinauto 컨트롤 (left_spread 또는 right_spread)
             keys: 입력할 키
-            sleep_after: 키 입력 후 대기 시간 (기본 0.1초)
+            sleep_after: 키 입력 후 대기 시간 (기본 0.1초, global_delay 적용됨)
             **kwargs: type_keys에 전달할 추가 인자
         """
         self._type_keys(control, keys, **kwargs)
-        time.sleep(sleep_after)
+        time.sleep(sleep_after * self.global_delay)
 
     def _send_copy(self):
         """
@@ -240,7 +267,7 @@ class BulkDependentInput:
         Args:
             control: pywinauto 컨트롤
             text: 입력할 텍스트
-            sleep_after: 붙여넣기 후 대기 시간 (기본 0.1초)
+            sleep_after: 붙여넣기 후 대기 시간 (기본 0.15초, global_delay 적용됨)
         """
         # 클립보드에 텍스트 복사
         pyperclip.copy(text)
@@ -492,7 +519,7 @@ class BulkDependentInput:
 
         # 왼쪽 스프레드로 포커스 복귀
         self.left_spread.set_focus()
-        time.sleep(0.1)
+        time.sleep(0.1 * self.global_delay)
 
         elapsed = time.time() - start_time
         self.log("DEBUG", f"⏱️ 사원 1명 전체 처리: {elapsed:.2f}초")
@@ -556,6 +583,18 @@ class BulkDependentInput:
 
         if dry_run:
             self.log("INFO", "!!! DRY RUN 모드 - 실제 입력 안함 !!!")
+
+        # 실행 전 스프레드 상태 재확인
+        self.log("INFO", "화면 상태 확인 중...")
+        spreads = self.dlg.children(class_name="fpUSpread80")
+        if len(spreads) < 2:
+            error_msg = "❌ 부양가족상세 탭이 열려있지 않습니다!\n\n"
+            error_msg += "다음을 확인하세요:\n"
+            error_msg += "1. 사원등록 창에서 '부양가족정보' 탭을 선택했는지\n"
+            error_msg += "2. 오른쪽 부양가족상세 영역이 표시되어 있는지\n\n"
+            error_msg += f"(현재 스프레드 개수: {len(spreads)}개, 필요: 2개 이상)"
+            raise Exception(error_msg)
+        self.log("INFO", "✓ 화면 상태 정상")
 
         # 1. 시작 위치로 이동 (Ctrl+Home)
         self.log("INFO", "첫 번째 사원으로 이동...")
@@ -730,13 +769,19 @@ def main():
         action='store_true',
         help='실제 입력 없이 테스트'
     )
+    parser.add_argument(
+        '--delay',
+        type=float,
+        default=1.0,
+        help='전역 지연 시간 배율 (0.5~2.0, 기본값: 1.0)'
+    )
 
     args = parser.parse_args()
 
     # 실행
     bulk = None
     try:
-        bulk = BulkDependentInput(args.csv)
+        bulk = BulkDependentInput(args.csv, global_delay=args.delay)
 
         bulk.run(
             count=args.count,

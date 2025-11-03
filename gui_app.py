@@ -113,6 +113,7 @@ class BulkInputGUI(ctk.CTk):
         # 변수
         self.csv_path = ctk.StringVar()
         self.employee_count = ctk.StringVar()
+        self.global_delay = ctk.StringVar(value="1.0")
         self.dry_run = ctk.BooleanVar(value=False)
         self.is_running = False
         self.log_queue = queue.Queue()
@@ -199,6 +200,31 @@ class BulkInputGUI(ctk.CTk):
         ctk.CTkLabel(
             count_frame,
             text="(비어있으면 전체 처리)",
+            font=ctk.CTkFont(size=11),
+            text_color="gray"
+        ).pack(side="left", padx=5)
+
+        # Delay 설정
+        delay_frame = ctk.CTkFrame(options_frame)
+        delay_frame.pack(side="left", padx=10, pady=10)
+
+        ctk.CTkLabel(
+            delay_frame,
+            text="입력 속도:",
+            font=ctk.CTkFont(size=13)
+        ).pack(side="left", padx=5)
+
+        self.delay_entry = ctk.CTkEntry(
+            delay_frame,
+            textvariable=self.global_delay,
+            width=60,
+            placeholder_text="1.0"
+        )
+        self.delay_entry.pack(side="left", padx=5)
+
+        ctk.CTkLabel(
+            delay_frame,
+            text="(0.5~2.0배)",
             font=ctk.CTkFont(size=11),
             text_color="gray"
         ).pack(side="left", padx=5)
@@ -329,12 +355,26 @@ class BulkInputGUI(ctk.CTk):
                 messagebox.showerror("오류", "사원 수는 숫자여야 합니다.")
                 return
 
+        # Delay 파싱
+        delay_str = self.global_delay.get().strip()
+        delay = 1.0
+        if delay_str:
+            try:
+                delay = float(delay_str)
+                if delay < 0.5 or delay > 2.0:
+                    messagebox.showerror("오류", "입력 속도는 0.5~2.0 범위여야 합니다.")
+                    return
+            except ValueError:
+                messagebox.showerror("오류", "입력 속도는 숫자여야 합니다.")
+                return
+
         # UI 상태 변경
         self.is_running = True
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
         self.browse_btn.configure(state="disabled")
         self.count_entry.configure(state="disabled")
+        self.delay_entry.configure(state="disabled")
         self.dry_run_check.configure(state="disabled")
 
         self.log_text.delete("1.0", "end")
@@ -353,12 +393,12 @@ class BulkInputGUI(ctk.CTk):
         # 백그라운드 스레드에서 실행
         thread = threading.Thread(
             target=self.run_automation,
-            args=(csv_file, count, self.dry_run.get()),
+            args=(csv_file, count, delay, self.dry_run.get()),
             daemon=True
         )
         thread.start()
 
-    def run_automation(self, csv_file, count, dry_run):
+    def run_automation(self, csv_file, count, delay, dry_run):
         """백그라운드에서 자동화 실행"""
         try:
             # stdout 리디렉션
@@ -366,7 +406,7 @@ class BulkInputGUI(ctk.CTk):
             sys.stdout = LogRedirector(self.log_text, self.log_queue)
 
             # BulkDependentInput 실행 (verbose=False로 DEBUG 로그 끄기)
-            self.bulk_automation = BulkDependentInput(csv_file, verbose=False)
+            self.bulk_automation = BulkDependentInput(csv_file, verbose=False, global_delay=delay)
             result = self.bulk_automation.run(count=count, dry_run=dry_run)
 
             # 리소스 정리 (keyboard 후크 해제는 run()에서 이미 처리됨)
@@ -392,7 +432,10 @@ class BulkInputGUI(ctk.CTk):
             # stdout 복원
             sys.stdout = original_stdout
 
-            self.log_queue.put(f"\n❌ 오류 발생: {e}")
+            # 에러 메시지 추출
+            error_message = str(e)
+
+            self.log_queue.put(f"\n❌ 오류 발생: {error_message}")
             import traceback
             self.log_queue.put(traceback.format_exc())
 
@@ -403,10 +446,10 @@ class BulkInputGUI(ctk.CTk):
                 except:
                     pass
 
-            # 실패 완료
-            self.after(0, lambda: self.on_automation_complete(False))
+            # 실패 완료 + 에러 메시지 전달
+            self.after(0, lambda: self.on_automation_complete(False, error_message))
 
-    def on_automation_complete(self, success):
+    def on_automation_complete(self, success, error_message=None):
         """자동화 완료 후 처리"""
         # 안내 창 닫기
         if self.stop_window is not None:
@@ -423,6 +466,7 @@ class BulkInputGUI(ctk.CTk):
         self.stop_btn.configure(state="disabled")
         self.browse_btn.configure(state="normal")
         self.count_entry.configure(state="normal")
+        self.delay_entry.configure(state="normal")
         self.dry_run_check.configure(state="normal")
 
         if success:
@@ -431,6 +475,10 @@ class BulkInputGUI(ctk.CTk):
         else:
             self.progress_label.configure(text="❌ 오류 발생")
             self.progress_bar.set(0)
+
+            # 에러 메시지가 있으면 별도 알림창으로 표시
+            if error_message:
+                messagebox.showerror("오류", error_message)
 
     def _do_stop(self):
         """실제 중지 처리 (GUI 스레드에서 실행)"""
