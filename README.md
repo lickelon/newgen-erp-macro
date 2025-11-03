@@ -47,7 +47,7 @@
    ```
 
 2. **실행파일 실행**
-   - `dist/부양가족_대량입력.exe` 더블 클릭
+   - `dist/BuYangGaJok_Input.exe` 더블 클릭
    - CSV 파일 선택
    - 옵션 설정 후 **▶ 시작** 버튼 클릭
 
@@ -138,10 +138,10 @@ uv run python test.py
 newgen-erp-macro/
 ├── gui_app.py                     # 🎯 GUI 메인 애플리케이션
 ├── bulk_dependent_input.py        # 부양가족 대량 입력 자동화 로직
-├── gui_app.spec                   # PyInstaller 빌드 설정
-├── build.bat                      # 실행파일 빌드 스크립트
-├── dist/                          # 빌드 결과물
-│   └── 부양가족_대량입력.exe      # ⭐ 실행파일
+├── gui_app.spec                   # PyInstaller build configuration
+├── build.bat                      # Build script (Windows)
+├── dist/                          # Build output
+│   └── BuYangGaJok_Input.exe      # ⭐ Executable file
 ├── src/                           # 핵심 자동화 모듈
 │   ├── tab_automation.py          # 탭 자동화 모듈
 │   ├── employee_input.py          # 직원 정보 입력 모듈

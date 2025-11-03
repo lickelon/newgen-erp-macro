@@ -27,18 +27,18 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='부양가족_대량입력',
+    name='BuYangGaJok_Input',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # GUI 앱이므로 콘솔 창 숨김
+    console=False,  # GUI app - hide console window
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # 아이콘 파일 경로 (있으면 추가 가능)
+    icon=None,  # Optional: add icon file path here
 )
