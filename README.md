@@ -47,7 +47,7 @@
    ```
 
 2. **실행파일 실행**
-   - `dist/BuYangGaJok_Input.exe` 더블 클릭
+   - `dist/newgen_erp_macro.exe` 더블 클릭
    - UAC 권한 상승 창에서 **"예"** 클릭 (자동으로 관리자 권한 요청)
    - CSV 파일 선택
    - 옵션 설정 후 **▶ 시작** 버튼 클릭
@@ -142,7 +142,7 @@ newgen-erp-macro/
 ├── gui_app.spec                   # PyInstaller build configuration
 ├── build.bat                      # Build script (Windows)
 ├── dist/                          # Build output
-│   └── BuYangGaJok_Input.exe      # ⭐ Executable file
+│   └── newgen_erp_macro.exe       # ⭐ Executable file
 ├── src/                           # 핵심 자동화 모듈
 │   ├── tab_automation.py          # 탭 자동화 모듈
 │   ├── employee_input.py          # 직원 정보 입력 모듈

@@ -27,7 +27,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='BuYangGaJok_Input',
+    name='newgen_erp_macro',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

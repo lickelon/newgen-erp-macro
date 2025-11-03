@@ -21,8 +21,8 @@ echo Done.
 
 echo.
 echo [3/4] Verifying executable...
-if exist "dist\BuYangGaJok_Input.exe" (
-    echo Success: dist\BuYangGaJok_Input.exe
+if exist "dist\newgen_erp_macro.exe" (
+    echo Success: dist\newgen_erp_macro.exe
 ) else (
     echo Failed to create executable!
     pause
@@ -38,6 +38,6 @@ echo.
 echo ====================================
 echo Build Complete!
 echo ====================================
-echo Executable: dist\BuYangGaJok_Input.exe
+echo Executable: dist\newgen_erp_macro.exe
 echo.
 pause
