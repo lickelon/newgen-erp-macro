@@ -46,16 +46,7 @@ env/
 .claude/
 
 # Project specific
-test/image/*.png
-test/image/*.jpg
-test/*.txt
-test/*.log
-archive/
 *.log
-
-# Documentation images are tracked
-!docs/images/*.png
-!docs/images/*.jpg
 
 # Test data
 *.csv
