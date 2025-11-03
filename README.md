@@ -1,22 +1,28 @@
-# 사원등록 자동화
+# 부양가족 대량 입력 자동화
 
-pywinauto를 사용한 Windows 사원등록 프로그램 자동화 도구
+사원등록 프로그램에서 부양가족 정보를 CSV 파일로부터 자동으로 대량 입력하는 GUI 애플리케이션입니다.
 
-**마우스 커서를 움직이지 않고** 탭 선택 및 데이터 입력을 자동화합니다.
+**마우스 커서를 움직이지 않고** 데이터 입력을 자동화하며, **Pause 키로 안전하게 중지**할 수 있습니다.
 
-## 프로젝트 개요
+## 🎯 프로젝트 개요
 
 이 프로젝트는 **사원등록** MFC 애플리케이션의 UI 요소를 자동으로 제어하여:
 - ✅ 탭 선택 (마우스 움직임 없음) - **완료**
 - ✅ 직원 정보 입력 (사번, 성명, 주민번호) - **완료**
-- 🔄 부양가족 데이터 입력 - **개발 중**
+- ✅ 부양가족 데이터 대량 입력 - **완료**
+- ✅ GUI 애플리케이션 - **완료**
+- ✅ 실행파일 빌드 - **완료**
 
 ## 주요 기능
 
-- **탭 자동화**: Win32 SendMessage를 사용한 안정적인 탭 선택
-- **마우스 비침범**: 물리적 마우스 이동 없이 윈도우 메시지만 사용
-- **스크린샷 검증**: 모든 작업 단계를 이미지로 캡처하여 검증
-- **체계적인 테스트**: attempt 패턴으로 다양한 방법 시도 및 문서화
+- **GUI 인터페이스**: CustomTkinter 기반의 사용자 친화적 인터페이스
+- **CSV 파일 기반**: 엑셀에서 편집 가능한 CSV 형식 지원
+- **Pause 키 중지**: Pause 키 3번으로 안전하게 중지 (마우스 불필요)
+- **실시간 로그**: 처리 상황 실시간 모니터링
+- **Dry Run 모드**: 실제 입력 없이 테스트 가능
+- **부분 실행**: 처리할 사원 수 지정 가능
+- **플로팅 안내 창**: 실행 중 중지 방법 안내
+- **실행파일 제공**: Python 설치 없이 .exe 파일로 실행 가능
 
 ## 시작 전 준비사항
 
@@ -33,22 +39,47 @@ pywinauto를 사용한 Windows 사원등록 프로그램 자동화 도구
 
 ## 빠른 시작
 
-### ⭐ 성공한 자동화 예제
+### ⭐ 실행파일 사용 (권장)
 
-53회의 시도 끝에 발견한 좌표 독립적 자동화 방법:
+1. **실행파일 빌드** (최초 1회만)
+   ```bash
+   build.bat
+   ```
+
+2. **실행파일 실행**
+   - `dist/부양가족_대량입력.exe` 더블 클릭
+   - CSV 파일 선택
+   - 옵션 설정 후 **▶ 시작** 버튼 클릭
+
+3. **중지 방법**
+   - **Pause 키를 3번 연속으로 누르세요** (2초 이내)
+   - 플로팅 안내 창에 중지 방법 표시됨
+
+### 📝 CSV 파일 형식
+
+| 컬럼명 | 설명 | 예시 |
+|--------|------|------|
+| 사번 | 사원 번호 | 20240001 |
+| 성명 | 사원 이름 | 홍길동 |
+| 부양가족성명 | 부양가족 이름 | 홍아들 |
+| 관계코드 | 연말정산 관계 코드 | 4 (자녀) |
+| 내외국인 | N=내국인, Y=외국인 | N |
+| 주민번호 | 주민등록번호 | 001231-1234567 |
+| 기본공제 | Y=공제, N=공제안함 | Y |
+| 자녀공제 | Y=공제, N=공제안함 | Y |
+
+### Python으로 직접 실행
 
 ```bash
-# 사원 선택 (Attempt 53)
-uv run python examples/example_employee_selection.py
+# 의존성 설치
+uv sync
 
-# 탭 전환 (Attempt 52)
-uv run python examples/example_tab_switching.py
+# GUI 실행
+uv run python gui_app.py
 
-# 데이터 입력 (Attempt 43)
-uv run python examples/example_data_input.py
+# CLI 실행 (고급 사용자)
+uv run python bulk_dependent_input.py --csv "데이터.csv" --count 5
 ```
-
-자세한 내용은 **[docs/automation-guide.md](docs/automation-guide.md)** 참조
 
 ### 탭 자동화 (기존 좌표 기반)
 
@@ -105,45 +136,28 @@ uv run python test.py
 
 ```
 newgen-erp-macro/
-├── src/                           # 🎯 핵심 자동화 모듈
+├── gui_app.py                     # 🎯 GUI 메인 애플리케이션
+├── bulk_dependent_input.py        # 부양가족 대량 입력 자동화 로직
+├── gui_app.spec                   # PyInstaller 빌드 설정
+├── build.bat                      # 실행파일 빌드 스크립트
+├── dist/                          # 빌드 결과물
+│   └── 부양가족_대량입력.exe      # ⭐ 실행파일
+├── src/                           # 핵심 자동화 모듈
 │   ├── tab_automation.py          # 탭 자동화 모듈
 │   ├── employee_input.py          # 직원 정보 입력 모듈
-│   ├── message_monitor.py         # 기본 메시지 모니터링
-│   ├── advanced_message_monitor.py # 고급 메시지 모니터링
-│   └── analyze_basic_tab.py       # 기본사항 탭 분석 도구
-├── examples/                      # ✅ 성공한 자동화 예제
-│   ├── example_employee_selection.py  # 사원 선택 (Attempt 53)
-│   ├── example_tab_switching.py       # 탭 전환 (Attempt 52)
-│   ├── example_data_input.py          # 데이터 입력 (Attempt 43)
-│   └── README.md                      # 예제 가이드
-├── docs/                          # 📚 문서
-│   ├── automation-guide.md        # ⭐ 완전한 자동화 가이드 (53회 시도 결과)
-│   ├── successful-method.md       # 최종 성공 방법 정리
-│   ├── overview.md                # 프로젝트 개요
-│   ├── window-architecture.md     # 윈도우 구조 분석
-│   ├── tab-automation.md          # 탭 자동화 가이드 (기존 좌표 기반)
-│   ├── employee-input.md          # 사원 입력 가이드
-│   ├── testing-framework.md       # 테스트 프레임워크
-│   ├── development-guide.md       # 개발 가이드
-│   └── spy-realtime-monitoring.md # Spy++ 실시간 모니터링
+│   ├── csv_reader.py              # CSV 파일 리더
+│   └── ...                        # 기타 유틸리티
+├── examples/                      # 성공한 자동화 예제
+│   ├── example_employee_selection.py
+│   ├── example_tab_switching.py
+│   └── example_data_input.py
+├── docs/                          # 📚 상세 문서
+│   ├── automation-guide.md        # 완전한 자동화 가이드
+│   └── ...                        # 기타 문서
 ├── test/                          # 🧪 테스트 및 개발 이력
 │   ├── attempt/                   # 53개 시도 스크립트들
-│   │   ├── attempt01-42_*.py      # 다양한 방법 시도
-│   │   ├── attempt43_dlg_type_keys.py      # ✅ 데이터 입력 성공
-│   │   ├── attempt47-51_*.py               # 탭 전환 시도 (실패)
-│   │   ├── attempt52_dialog_combinations.py # ✅ 탭 전환 성공
-│   │   └── attempt53_select_employee.py     # ✅ 사원 선택 성공
-│   ├── image/                     # 테스트 스크린샷 저장소
-│   ├── message_log_*.txt          # 메시지 모니터링 로그
-│   └── capture.py                 # 캡처 유틸리티
-├── archive/                       # 🗄️ 아카이브
-│   ├── result.txt                 # 윈도우 구조 분석 결과
-│   ├── log.txt                    # 과거 로그
-│   └── *.py                       # 초기 실험 스크립트들
-├── main.py                        # 메인 자동화 스크립트
-├── test.py                        # 테스트 실행 스크립트
-├── test_with_spy.py               # Spy++ 연동 테스트
-├── test_employee_input_with_monitoring.py  # 직원 입력 + 모니터링
+│   └── ...
+├── logs/                          # 실행 로그 저장소
 ├── pyproject.toml                 # 프로젝트 설정 (uv)
 └── README.md                      # 이 파일
 ```
@@ -381,14 +395,33 @@ if result['success']:
 
 ## 의존성
 
+### 실행 의존성
+- **customtkinter**: GUI 프레임워크
+- **keyboard**: 키보드 이벤트 처리 (Pause 키 감지)
 - **pywinauto**: Windows UI 자동화
-- **mss**: 스크린샷 캡처
-- **Pillow**: 이미지 처리
+- **pyperclip**: 클립보드 작업
 - **pywin32**: Windows API
+
+### 개발 의존성
+- **pyinstaller**: 실행파일 빌드
 
 전체 의존성은 `pyproject.toml` 참조
 
 ## 트러블슈팅
+
+### keyboard 패키지 관련 오류
+- **증상**: 프로그램이 실행되지 않거나 Pause 키가 작동하지 않음
+- **해결**: 관리자 권한으로 실행
+  - 실행파일: 우클릭 → "관리자 권한으로 실행"
+  - Python: PowerShell을 관리자 권한으로 실행 후 `uv run python gui_app.py`
+
+### 사원 정보를 찾을 수 없음
+- **증상**: "CSV 데이터 없음, 건너뜀"
+- **해결**: CSV의 사번과 화면의 사번이 일치하는지 확인
+
+### 입력이 느림
+- 정상입니다. 안정성을 위해 각 입력 후 대기 시간이 있습니다
+- 평균 1명당 5-10초 소요
 
 ### 32비트/64비트 경고
 
@@ -397,10 +430,6 @@ UserWarning: 32-bit application should be automated using 32-bit Python
 ```
 
 이 경고는 무시해도 됩니다. 64비트 Python으로도 32비트 애플리케이션 제어가 가능합니다.
-
-### 권한 오류
-
-일부 작업은 관리자 권한이 필요할 수 있습니다. PowerShell 또는 터미널을 관리자 권한으로 실행하세요.
 
 ## 📚 문서
 
