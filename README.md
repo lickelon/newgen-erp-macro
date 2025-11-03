@@ -48,6 +48,7 @@
 
 2. **실행파일 실행**
    - `dist/BuYangGaJok_Input.exe` 더블 클릭
+   - UAC 권한 상승 창에서 **"예"** 클릭 (자동으로 관리자 권한 요청)
    - CSV 파일 선택
    - 옵션 설정 후 **▶ 시작** 버튼 클릭
 
@@ -411,9 +412,9 @@ if result['success']:
 
 ### keyboard 패키지 관련 오류
 - **증상**: 프로그램이 실행되지 않거나 Pause 키가 작동하지 않음
-- **해결**: 관리자 권한으로 실행
-  - 실행파일: 우클릭 → "관리자 권한으로 실행"
-  - Python: PowerShell을 관리자 권한으로 실행 후 `uv run python gui_app.py`
+- **해결**: 실행파일은 자동으로 관리자 권한을 요청합니다
+  - 실행 시 UAC 창에서 "예" 클릭
+  - Python 직접 실행: PowerShell을 관리자 권한으로 실행 후 `uv run python gui_app.py`
 
 ### 사원 정보를 찾을 수 없음
 - **증상**: "CSV 데이터 없음, 건너뜀"

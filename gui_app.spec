@@ -41,4 +41,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=None,  # Optional: add icon file path here
+    uac_admin=True,  # Request administrator privileges on startup
 )
