@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 import win32gui
+import keyboard
 
 try:
     import pyperclip
@@ -27,13 +28,22 @@ from src.csv_reader import CSVReader, DependentData
 class BulkDependentInput:
     """부양가족 대량 입력 자동화"""
 
-    def __init__(self, csv_path: str):
+    def __init__(self, csv_path: str, verbose: bool = False):
         """
         초기화 및 연결
 
         Args:
             csv_path: CSV 파일 경로
+            verbose: True면 DEBUG 로그 출력, False면 숨김 (기본값: False)
         """
+        self.verbose = verbose
+        self.stop_requested = False  # 중지 플래그
+        self.pause_press_count = 0  # Pause 키 연속 누름 횟수
+        self.last_pause_time = 0  # 마지막 Pause 키 누름 시간
+
+        # Pause 키 리스너 등록
+        keyboard.on_press_key('pause', self._on_pause_press)
+
         print(f"초기화 중...")
 
         # CSV 데이터 로드
@@ -110,9 +120,13 @@ class BulkDependentInput:
         로그 기록
 
         Args:
-            level: 로그 레벨 (INFO, SUCCESS, WARNING, ERROR)
+            level: 로그 레벨 (INFO, SUCCESS, WARNING, ERROR, DEBUG)
             message: 메시지
         """
+        # DEBUG 로그는 verbose 모드일 때만 출력
+        if level == "DEBUG" and not self.verbose:
+            return
+
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_line = f"[{timestamp}] {level}: {message}"
 
@@ -122,6 +136,60 @@ class BulkDependentInput:
         # 파일 기록
         with open(self.log_file, 'a', encoding='utf-8') as f:
             f.write(log_line + '\n')
+
+    def _on_pause_press(self, event):
+        """
+        Pause 키 눌림 콜백 (keyboard 패키지)
+
+        Args:
+            event: keyboard.KeyboardEvent
+        """
+        current_time = time.time()
+
+        # 2초 이내에 이전 키 입력이 있었는지 확인
+        if current_time - self.last_pause_time <= 2.0:
+            self.pause_press_count += 1
+        else:
+            # 2초 넘었으면 카운트 리셋
+            self.pause_press_count = 1
+
+        self.last_pause_time = current_time
+
+        # 3번 눌렸으면 중지
+        if self.pause_press_count >= 3:
+            self.log("WARNING", "Pause 키 3번 감지 - 중지 요청")
+            self.stop_requested = True
+            self.pause_press_count = 0  # 리셋
+        else:
+            self.log("INFO", f"Pause 키 감지 ({self.pause_press_count}/3)")
+
+    def check_stop_key(self) -> bool:
+        """
+        중지 요청 상태 체크 (keyboard 콜백에서 설정됨)
+
+        Returns:
+            True면 중지 요청, False면 계속 진행
+        """
+        return self.stop_requested
+
+    def stop(self):
+        """
+        자동화 중지 요청
+
+        실행 중인 run() 메서드는 다음 체크 포인트에서 중지됩니다.
+        """
+        self.log("WARNING", "중지 요청됨 - 현재 작업 완료 후 중단...")
+        self.stop_requested = True
+
+    def cleanup(self):
+        """
+        리소스 정리 (keyboard 후크 해제)
+        """
+        try:
+            keyboard.unhook_key('pause')
+            self.log("INFO", "Pause 키 리스너 해제됨")
+        except Exception as e:
+            self.log("WARNING", f"Pause 키 리스너 해제 실패: {e}")
 
     def _type_keys(self, control, keys: str, **kwargs):
         """
@@ -161,7 +229,7 @@ class BulkDependentInput:
         """
         self._type_keys_with_delay(self.left_spread, "^c", pause=0.05)
 
-    def _paste_text(self, control, text: str, sleep_after: float = 0.1):
+    def _paste_text(self, control, text: str, sleep_after: float = 0.15):
         """
         클립보드 복사 후 붙여넣기 (긴 텍스트 입력 최적화)
 
@@ -222,7 +290,7 @@ class BulkDependentInput:
             t2 = time.time()
             self._type_keys_with_delay(self.right_spread, dep.name, with_spaces=False, pause=0.05)
 
-            # ENTER (다음 열로 이동)
+            # ENTER (다음 열로 이동) - 대기 시간 충분히 증가
             self._type_keys_with_delay(self.right_spread, "{ENTER}", pause=0.05)
             self.log("DEBUG", f"  ⏱️ 성명: {time.time()-t2:.2f}초")
 
@@ -409,6 +477,11 @@ class BulkDependentInput:
         success_count = 0
 
         for dep in dependents:
+            # 중지 요청 체크
+            if self.stop_requested:
+                self.log("WARNING", "  → 중지 요청으로 부양가족 입력 중단")
+                break
+
             if self.input_dependent(dep):
                 success_count += 1
                 self.log("SUCCESS", f"    [OK] {dep.name} (관계: {dep.relationship_code})")
@@ -498,6 +571,14 @@ class BulkDependentInput:
             i = 0
             prev_emp_no = None
             while True:
+                # F12 키 체크
+                self.check_stop_key()
+
+                # 중지 요청 체크
+                if self.stop_requested:
+                    self.log("WARNING", "중지 요청으로 처리 중단")
+                    break
+
                 self.log("INFO", f"\n[{i+1}]")
 
                 # 사번 먼저 읽어서 빈 칸인지 확인
@@ -533,6 +614,14 @@ class BulkDependentInput:
         else:
             # 개수 지정 모드
             for i in range(count):
+                # F12 키 체크
+                self.check_stop_key()
+
+                # 중지 요청 체크
+                if self.stop_requested:
+                    self.log("WARNING", "중지 요청으로 처리 중단")
+                    break
+
                 self.log("INFO", f"\n[{i+1}/{count}]")
 
                 if not dry_run:
@@ -570,6 +659,8 @@ class BulkDependentInput:
             else:
                 self.log("INFO", f"총 소요시간: {seconds:.1f}초")
 
+            # 리소스 정리
+            self.cleanup()
             return summary
         else:
             self.log("INFO", "\n=== DRY RUN 완료 ===")
@@ -577,6 +668,9 @@ class BulkDependentInput:
                 self.log("INFO", f"총 소요시간: {minutes}분 {seconds:.1f}초")
             else:
                 self.log("INFO", f"총 소요시간: {seconds:.1f}초")
+
+            # 리소스 정리
+            self.cleanup()
             return {}
 
     def _summarize_results(self, results: List[Dict]) -> Dict:
@@ -640,6 +734,7 @@ def main():
     args = parser.parse_args()
 
     # 실행
+    bulk = None
     try:
         bulk = BulkDependentInput(args.csv)
 
@@ -649,11 +744,15 @@ def main():
         )
     except KeyboardInterrupt:
         print("\n\n중단됨 (Ctrl+C)")
+        if bulk:
+            bulk.cleanup()
         sys.exit(1)
     except Exception as e:
         print(f"\n\n치명적 오류: {e}")
         import traceback
         traceback.print_exc()
+        if bulk:
+            bulk.cleanup()
         sys.exit(1)
 
 
