@@ -49,12 +49,28 @@ class CSVReader:
 
     def read(self) -> List[DependentData]:
         """CSV 파일을 읽어서 DependentData 리스트로 반환"""
-        with open(self.csv_path, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                self.data.append(DependentData(row))
+        # 여러 인코딩을 시도하여 파일 읽기
+        encodings = ['utf-8-sig', 'cp949', 'euc-kr', 'latin-1']
+        last_error = None
 
-        return self.data
+        for encoding in encodings:
+            try:
+                with open(self.csv_path, 'r', encoding=encoding) as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        self.data.append(DependentData(row))
+
+                return self.data
+            except (UnicodeDecodeError, UnicodeError) as e:
+                last_error = e
+                self.data = []  # 재시도를 위해 데이터 초기화
+                continue
+
+        # 모든 인코딩 실패 시
+        raise UnicodeDecodeError(
+            'multiple', b'', 0, 1,
+            f'CSV 파일을 읽을 수 없습니다. 시도한 인코딩: {encodings}. 마지막 오류: {last_error}'
+        )
 
     def get_by_employee(self, employee_no: str) -> List[DependentData]:
         """특정 사원의 부양가족 데이터만 반환"""

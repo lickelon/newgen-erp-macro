@@ -23,7 +23,7 @@ from src.input_handler import InputHandler
 class BulkDependentInput:
     """부양가족 대량 입력 자동화"""
 
-    def __init__(self, csv_path: str, verbose: bool = False, global_delay: float = 1.0):
+    def __init__(self, csv_path: str, verbose: bool = False, global_delay: float = 1.0, start_from_current: bool = False):
         """
         초기화 및 연결
 
@@ -31,9 +31,11 @@ class BulkDependentInput:
             csv_path: CSV 파일 경로
             verbose: True면 DEBUG 로그 출력, False면 숨김 (기본값: False)
             global_delay: 전역 지연 시간 배율 (0.5~2.0, 기본값: 1.0)
+            start_from_current: True면 현재 위치에서 시작, False면 Ctrl+Home 실행 (기본값: False)
         """
         self.verbose = verbose
         self.global_delay = max(0.5, min(2.0, global_delay))
+        self.start_from_current = start_from_current
 
         print(f"초기화 중...")
 
@@ -371,10 +373,13 @@ class BulkDependentInput:
         self.log("INFO", "✓ 화면 상태 정상")
 
         # 시작 위치로 이동
-        self.log("INFO", "첫 번째 사원으로 이동...")
-        self.input_handler.type_keys_with_delay(self.left_spread, "^{HOME}", pause=0.05)
-        self.input_handler.type_keys_with_delay(self.left_spread, "{HOME}", pause=0.05)
-        self.input_handler.type_keys_with_delay(self.left_spread, "{LEFT}", pause=0.05)
+        if not self.start_from_current:
+            self.log("INFO", "첫 번째 사원으로 이동...")
+            self.input_handler.type_keys_with_delay(self.left_spread, "^{HOME}", pause=0.05)
+            self.input_handler.type_keys_with_delay(self.left_spread, "{HOME}", pause=0.05)
+            self.input_handler.type_keys_with_delay(self.left_spread, "{LEFT}", pause=0.05)
+        else:
+            self.log("INFO", "현재 위치에서 시작...")
 
         # 각 사원 처리
         results = []

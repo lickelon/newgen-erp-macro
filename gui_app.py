@@ -115,6 +115,7 @@ class BulkInputGUI(ctk.CTk):
         self.employee_count = ctk.StringVar()
         self.global_delay = ctk.StringVar(value="1.0")
         self.dry_run = ctk.BooleanVar(value=False)
+        self.start_from_current = ctk.BooleanVar(value=False)
         self.is_running = False
         self.log_queue = queue.Queue()
         self.bulk_automation = None  # BulkDependentInput 인스턴스
@@ -210,7 +211,7 @@ class BulkInputGUI(ctk.CTk):
 
         ctk.CTkLabel(
             delay_frame,
-            text="입력 속도:",
+            text="입력 지연:",
             font=ctk.CTkFont(size=13)
         ).pack(side="left", padx=5)
 
@@ -224,19 +225,32 @@ class BulkInputGUI(ctk.CTk):
 
         ctk.CTkLabel(
             delay_frame,
-            text="(0.5~2.0배)",
+            text="(0.5~2.0배, 클수록 느림)",
             font=ctk.CTkFont(size=11),
             text_color="gray"
         ).pack(side="left", padx=5)
 
+        # ===== 체크박스 프레임 (별도 줄) =====
+        checkbox_frame = ctk.CTkFrame(self)
+        checkbox_frame.pack(padx=20, pady=5, fill="x")
+
         # Dry run 체크박스
         self.dry_run_check = ctk.CTkCheckBox(
-            options_frame,
+            checkbox_frame,
             text="Dry Run (실제 입력 안함)",
             variable=self.dry_run,
             font=ctk.CTkFont(size=13)
         )
         self.dry_run_check.pack(side="left", padx=20, pady=10)
+
+        # 현재위치부터 시작 체크박스
+        self.start_from_current_check = ctk.CTkCheckBox(
+            checkbox_frame,
+            text="현재위치부터 시작",
+            variable=self.start_from_current,
+            font=ctk.CTkFont(size=13)
+        )
+        self.start_from_current_check.pack(side="left", padx=20, pady=10)
 
         # ===== 실행 버튼 =====
         button_frame = ctk.CTkFrame(self)
@@ -376,6 +390,7 @@ class BulkInputGUI(ctk.CTk):
         self.count_entry.configure(state="disabled")
         self.delay_entry.configure(state="disabled")
         self.dry_run_check.configure(state="disabled")
+        self.start_from_current_check.configure(state="disabled")
 
         self.log_text.delete("1.0", "end")
         self.log("=" * 50)
@@ -393,12 +408,12 @@ class BulkInputGUI(ctk.CTk):
         # 백그라운드 스레드에서 실행
         thread = threading.Thread(
             target=self.run_automation,
-            args=(csv_file, count, delay, self.dry_run.get()),
+            args=(csv_file, count, delay, self.dry_run.get(), self.start_from_current.get()),
             daemon=True
         )
         thread.start()
 
-    def run_automation(self, csv_file, count, delay, dry_run):
+    def run_automation(self, csv_file, count, delay, dry_run, start_from_current):
         """백그라운드에서 자동화 실행"""
         try:
             # stdout 리디렉션
@@ -406,7 +421,7 @@ class BulkInputGUI(ctk.CTk):
             sys.stdout = LogRedirector(self.log_text, self.log_queue)
 
             # BulkDependentInput 실행 (verbose=False로 DEBUG 로그 끄기)
-            self.bulk_automation = BulkDependentInput(csv_file, verbose=False, global_delay=delay)
+            self.bulk_automation = BulkDependentInput(csv_file, verbose=False, global_delay=delay, start_from_current=start_from_current)
             result = self.bulk_automation.run(count=count, dry_run=dry_run)
 
             # 리소스 정리 (keyboard 후크 해제는 run()에서 이미 처리됨)
@@ -468,6 +483,7 @@ class BulkInputGUI(ctk.CTk):
         self.count_entry.configure(state="normal")
         self.delay_entry.configure(state="normal")
         self.dry_run_check.configure(state="normal")
+        self.start_from_current_check.configure(state="normal")
 
         if success:
             self.progress_label.configure(text="✅ 완료!")
