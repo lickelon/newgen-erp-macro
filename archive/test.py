@@ -14,28 +14,11 @@ def main():
     print("사원등록 자동화 테스트")
     print("="*70)
 
-    # 연결
-    try:
-        app = application.Application(backend="win32")
-        app.connect(title="사원등록")
-        dlg = app.window(title="사원등록")
-        hwnd = dlg.handle
+    # 시도 117: 순서 기반 자동 입력
+    print("\n⚠️  시도 117 실행 중...")
+    from test.attempt.attempt117_sequential_input import run as attempt117
 
-        print(f"\n✓ 사원등록 윈도우 연결 성공 (HWND: {hwnd})\n")
-
-    except Exception as e:
-        print(f"\n✗ 연결 실패: {e}")
-        return
-
-    # capture 함수 생성
-    def capture_func(filename):
-        capture_window(hwnd, filename)
-
-    # 시도 85: COM Dispatch 방식
-    print("\n⚠️  시도 85 실행 중...")
-    from test.attempt.attempt85_com_dispatch import run as attempt85
-
-    result = attempt85(dlg, capture_func)
+    result = attempt117(None, None)
 
     print("\n" + "="*70)
     print(f"결과: {result['message']}")
