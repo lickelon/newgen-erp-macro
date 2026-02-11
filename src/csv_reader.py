@@ -20,6 +20,7 @@ class DependentData:
         self.id_number = row['주민등록번호'].strip()
         self.age = row['만나이'].strip()
         self.basic_deduction = row['기본공제여부'].strip()
+        self.disability_type = row['장애유형'].strip()
         self.child_deduction = row['자녀공제'].strip()
 
     def __repr__(self):
@@ -36,6 +37,7 @@ class DependentData:
             'id_number': self.id_number,
             'age': self.age,
             'basic_deduction': self.basic_deduction,
+            'disability_type': self.disability_type,
             'child_deduction': self.child_deduction
         }
 

@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 import pyperclip
+import keyboard
 
 from pywinauto import Application
 from src.csv_reader import CSVReader, DependentData
@@ -204,7 +205,8 @@ class BulkDependentInput:
 
             # 7. 기본공제여부
             t7 = time.time()
-            if dep.basic_deduction.strip().upper() == 'N':
+            is_basic_deduction = dep.basic_deduction.strip().upper() != 'N'
+            if not is_basic_deduction:
                 self.input_handler.type_keys_with_delay(
                     self.right_spread, "0", with_spaces=False, pause=0.05
                 )
@@ -214,18 +216,37 @@ class BulkDependentInput:
                 )
             self.log("DEBUG", f"  ⏱️ 기본공제: {time.time()-t7:.2f}초")
 
-            # 8. 자녀공제 (연말관계가 4이고, 기본공제가 Y인 경우만)
-            t8 = time.time()
-            if dep.relationship_code == '4' and dep.basic_deduction.strip().upper() == 'Y':
-                # 장애인 열 건너뛰기
-                self.input_handler.type_keys_with_delay(self.right_spread, "{RIGHT}", pause=0.05)
+            # 기본공제 Y인 경우에만 이후 필드 입력
+            if is_basic_deduction:
+                # 8. 장애유형 (0이면 건너뛰기)
+                #    만나이 60 이상 + 기본공제 Y → 경로공제 열이 자동체크되므로 한 칸 더 이동
+                t8 = time.time()
+                try:
+                    age = int(dep.age.strip())
+                except ValueError:
+                    age = 0
+                if age >= 60:
+                    self.input_handler.type_keys_with_delay(self.right_spread, "{RIGHT}", pause=0.05)
 
-                # 자녀공제 입력
-                child_code = '1' if dep.child_deduction.strip().upper() == 'Y' else '0'
-                self.input_handler.type_keys_with_delay(
-                    self.right_spread, child_code, with_spaces=False, pause=0.05
-                )
-            self.log("DEBUG", f"  ⏱️ 자녀공제: {time.time()-t8:.2f}초")
+                if dep.disability_type.strip() == '0' or not dep.disability_type.strip():
+                    self.input_handler.type_keys_with_delay(
+                        self.right_spread, "{RIGHT}", pause=0.05
+                    )
+                else:
+                    self.input_handler.type_keys_with_delay(
+                        self.right_spread, dep.disability_type.strip(), with_spaces=False, pause=0.05
+                    )
+                self.log("DEBUG", f"  ⏱️ 장애유형: {time.time()-t8:.2f}초")
+
+                # 9. 자녀공제 (연말관계가 4인 경우만)
+                t9 = time.time()
+                if dep.relationship_code == '4':
+                    child_code = '1' if dep.child_deduction.strip().upper() == 'Y' else '0'
+                    self.input_handler.type_keys_with_delay(
+                        self.right_spread, child_code, with_spaces=False, pause=0.05
+                    )
+                    time.sleep(0.3)
+                self.log("DEBUG", f"  ⏱️ 자녀공제: {time.time()-t9:.2f}초")
 
             # 다음 부양가족으로 이동
             t9 = time.time()
@@ -241,6 +262,48 @@ class BulkDependentInput:
         except Exception as e:
             self.log("ERROR", f"input_dependent 실패: {e}")
             return False
+
+    def clear_existing_dependents(self) -> int:
+        """
+        오른쪽 스프레드에서 기존 부양가족 행을 모두 삭제
+
+        1행과 2행의 관계코드를 비교하여 다르면 2행을 F5+y로 삭제.
+        같아질 때까지 반복.
+
+        Returns:
+            삭제한 행 수
+        """
+        deleted = 0
+        max_attempts = 100  # 무한루프 방지
+
+        for _ in range(max_attempts):
+            if self.check_stop_key():
+                break
+
+            # 1행 관계코드 읽기
+            self.input_handler.type_keys_with_delay(self.right_spread, "^{HOME}", pause=0.05)
+            self.input_handler.type_keys_with_delay(self.right_spread, "{HOME}", pause=0.05)
+            row1_value = self.input_handler.copy_from_control(self.right_spread)
+
+            # 2행 관계코드 읽기
+            self.input_handler.type_keys_with_delay(self.right_spread, "{DOWN}", pause=0.05)
+            row2_value = self.input_handler.copy_from_control(self.right_spread)
+
+            if row1_value == row2_value:
+                # 같으면 부양가족 없음, 종료
+                break
+
+            # 다르면 2행 삭제 (F5 → 글로벌 y)
+            self.input_handler.type_keys_with_delay(self.right_spread, "{F5}", sleep_after=0.2, pause=0.05)
+            keyboard.press_and_release('y')
+            time.sleep(0.1 * self.global_delay)
+            deleted += 1
+            self.log("DEBUG", f"  기존 부양가족 행 삭제 ({deleted}번째)")
+
+        if deleted > 0:
+            self.log("INFO", f"  → 기존 부양가족 {deleted}명 삭제 완료")
+
+        return deleted
 
     def _process_with_employee_no(self, emp_no: str) -> Dict:
         """
@@ -265,9 +328,15 @@ class BulkDependentInput:
 
         self.log("INFO", f"처리 시작: {emp_no} ({emp_name})")
 
+        # 오른쪽 스프레드로 포커스 이동 → 기존 부양가족 삭제
+        self.right_spread.set_focus()
+        self.clear_existing_dependents()
+
         # CSV 데이터 찾기
         if emp_no not in self.csv_data:
-            self.log("INFO", f"  → CSV 데이터 없음, 건너뜀")
+            self.log("INFO", f"  → CSV 데이터 없음, 기존 삭제만 수행")
+            self.left_spread.set_focus()
+            time.sleep(0.1 * self.global_delay)
             return {
                 'status': 'skip',
                 'reason': 'no_csv_data',
@@ -281,7 +350,9 @@ class BulkDependentInput:
         dependents = sorted(dependents, key=lambda d: (d.relationship_code, d.name))
 
         if not dependents:
-            self.log("INFO", f"  → 부양가족 없음, 건너뜀")
+            self.log("INFO", f"  → 부양가족 없음, 기존 삭제만 수행")
+            self.left_spread.set_focus()
+            time.sleep(0.1 * self.global_delay)
             return {
                 'status': 'skip',
                 'reason': 'no_dependents',
@@ -289,8 +360,7 @@ class BulkDependentInput:
                 'employee_name': emp_name
             }
 
-        # 오른쪽 스프레드로 포커스 이동
-        self.right_spread.set_focus()
+        # 입력 시작 위치로 이동
         self.input_handler.type_keys_with_delay(self.right_spread, "^{HOME}", pause=0.05)
         self.input_handler.type_keys_with_delay(self.right_spread, "{HOME}", pause=0.05)
         self.input_handler.type_keys_with_delay(self.right_spread, "{DOWN}", pause=0.05)

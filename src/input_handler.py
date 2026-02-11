@@ -90,14 +90,19 @@ class InputHandler:
         # Ctrl+V로 붙여넣기
         self.type_keys_with_delay(control, "^v", sleep_after=sleep_after, pause=0.05)
 
-    def copy_from_control(self):
+    def copy_from_control(self, control=None):
         """
         현재 선택된 셀에서 텍스트 복사 (Ctrl+C)
+
+        Args:
+            control: 복사할 컨트롤 (기본: left_spread)
 
         Returns:
             복사된 텍스트
         """
-        self.type_keys_with_delay(self.left_spread, "^c", pause=0.05)
+        if control is None:
+            control = self.left_spread
+        self.type_keys_with_delay(control, "^c", pause=0.05)
         return pyperclip.paste().strip()
 
     def convert_nationality(self, nationality: str) -> str:
