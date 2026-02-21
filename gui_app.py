@@ -449,9 +449,12 @@ class BulkInputGUI(ctk.CTk):
         # 안내 문구
         info_label = ctk.CTkLabel(
             tab,
-            text="⚠️ 중요: 분납적용 다이얼로그를 열고, 오른쪽 스프레드의\n첫 번째 사원 소득세 열 셀을 선택한 상태에서 시작하세요.",
+            text="⚠️ 분납적용 다이얼로그를 열고, 첫 번째 사원의 총액 소득세 셀을 선택한 상태에서 시작\n"
+                 "   총액(소득세/지방소득세) + 1차분납 소득세 + 2차분납 소득세 입력 (3차분납 자동)\n"
+                 "   총액 소득세 <= 100,000: 체크박스 선택 후 다음 사원 이동",
             font=ctk.CTkFont(size=12),
-            text_color="#e67e22"
+            text_color="#e67e22",
+            justify="left"
         )
         info_label.pack(padx=10, pady=10)
 
@@ -461,7 +464,7 @@ class BulkInputGUI(ctk.CTk):
 
         self.start_btn_inst = ctk.CTkButton(
             button_frame,
-            text="▶ 시작",
+            text="▶ 분납 입력",
             command=lambda: self.start_automation("installment"),
             font=ctk.CTkFont(size=16, weight="bold"),
             height=40,
@@ -469,6 +472,17 @@ class BulkInputGUI(ctk.CTk):
             hover_color="#27ae60"
         )
         self.start_btn_inst.pack(side="left", padx=10, pady=10, fill="x", expand=True)
+
+        self.checkbox_btn_inst = ctk.CTkButton(
+            button_frame,
+            text="☑ 체크박스",
+            command=lambda: self.start_automation("checkbox"),
+            font=ctk.CTkFont(size=16, weight="bold"),
+            height=40,
+            fg_color="#3498db",
+            hover_color="#2980b9"
+        )
+        self.checkbox_btn_inst.pack(side="left", padx=10, pady=10, fill="x", expand=True)
 
         self.stop_btn_inst = ctk.CTkButton(
             button_frame,
@@ -530,6 +544,8 @@ class BulkInputGUI(ctk.CTk):
             self._start_dependent_automation()
         elif automation_type == "installment":
             self._start_installment_automation()
+        elif automation_type == "checkbox":
+            self._start_checkbox_automation()
 
     def _start_dependent_automation(self):
         """부양가족 입력 자동화 시작"""
@@ -654,6 +670,70 @@ class BulkInputGUI(ctk.CTk):
         )
         thread.start()
 
+    def _start_checkbox_automation(self):
+        """체크박스 체크 자동화 시작"""
+        # 유효성 검사 (_start_installment_automation과 동일)
+        excel_file = self.excel_path.get()
+        if not excel_file:
+            messagebox.showerror("오류", "Excel 파일을 선택하세요.")
+            return
+
+        if not Path(excel_file).exists():
+            messagebox.showerror("오류", f"파일을 찾을 수 없습니다:\n{excel_file}")
+            return
+
+        start_str = self.start_index.get().strip()
+        start = 0
+        if start_str:
+            try:
+                start = int(start_str)
+                if start < 0:
+                    messagebox.showerror("오류", "시작 인덱스는 0 이상이어야 합니다.")
+                    return
+            except ValueError:
+                messagebox.showerror("오류", "시작 인덱스는 숫자여야 합니다.")
+                return
+
+        count_str = self.installment_count.get().strip()
+        count = None
+        if count_str:
+            try:
+                count = int(count_str)
+                if count <= 0:
+                    messagebox.showerror("오류", "처리 개수는 양수여야 합니다.")
+                    return
+            except ValueError:
+                messagebox.showerror("오류", "처리 개수는 숫자여야 합니다.")
+                return
+
+        delay_str = self.global_delay_inst.get().strip()
+        delay = 1.0
+        if delay_str:
+            try:
+                delay = float(delay_str)
+                if delay < 0.5 or delay > 2.0:
+                    messagebox.showerror("오류", "입력 속도는 0.5~2.0 범위여야 합니다.")
+                    return
+            except ValueError:
+                messagebox.showerror("오류", "입력 속도는 숫자여야 합니다.")
+                return
+
+        # UI 상태 변경
+        self._disable_ui()
+        self.log_text.delete("1.0", "end")
+        self.log("=" * 50)
+        self.log("체크박스 체크 자동화 시작")
+        self.log("=" * 50)
+        self.log("💡 중지하려면: Pause 키를 3번 누르세요 (2초 이내)")
+        self.log("=" * 50)
+
+        thread = threading.Thread(
+            target=self.run_checkbox_automation,
+            args=(excel_file, start, count, delay, self.dry_run_inst.get()),
+            daemon=True
+        )
+        thread.start()
+
     def _disable_ui(self):
         """UI 비활성화"""
         self.is_running = True
@@ -675,6 +755,7 @@ class BulkInputGUI(ctk.CTk):
 
         # 분납적용 탭 버튼
         self.start_btn_inst.configure(state="disabled")
+        self.checkbox_btn_inst.configure(state="disabled")
         self.stop_btn_inst.configure(state="normal")
         self.browse_btn_inst.configure(state="disabled")
         self.start_index_entry.configure(state="disabled")
@@ -697,6 +778,7 @@ class BulkInputGUI(ctk.CTk):
 
         # 분납적용 탭 버튼
         self.start_btn_inst.configure(state="normal")
+        self.checkbox_btn_inst.configure(state="normal")
         self.stop_btn_inst.configure(state="disabled")
         self.browse_btn_inst.configure(state="normal")
         self.start_index_entry.configure(state="normal")
@@ -801,6 +883,44 @@ class BulkInputGUI(ctk.CTk):
                     pass
 
             # 실패 완료
+            self.after(0, lambda: self.on_automation_complete(False, error_message))
+
+    def run_checkbox_automation(self, excel_file, start_index, count, delay, dry_run):
+        """백그라운드에서 체크박스 체크 자동화 실행"""
+        try:
+            original_stdout = sys.stdout
+            sys.stdout = LogRedirector(self.log_text, self.log_queue)
+
+            self.installment_automation = InstallmentAutomation(excel_file, verbose=False, global_delay=delay)
+            result = self.installment_automation.run_checkbox(start_index=start_index, count=count, dry_run=dry_run)
+
+            if result:
+                self.log_queue.put("\n" + "=" * 50)
+                if result['status'] == 'completed':
+                    self.log_queue.put("✅ 체크박스 완료!")
+                    self.log_queue.put(f"체크: {result['success']}명")
+                    self.log_queue.put(f"실패: {result['fail']}명")
+                    self.log_queue.put(f"소요 시간: {result['elapsed']:.1f}초")
+                else:
+                    self.log_queue.put(f"❌ 오류: {result.get('reason', 'unknown')}")
+                self.log_queue.put("=" * 50)
+
+            sys.stdout = original_stdout
+            self.after(0, lambda: self.on_automation_complete(True))
+
+        except Exception as e:
+            sys.stdout = original_stdout
+            error_message = str(e)
+            self.log_queue.put(f"\n❌ 오류 발생: {error_message}")
+            import traceback
+            self.log_queue.put(traceback.format_exc())
+
+            if self.installment_automation:
+                try:
+                    self.installment_automation.cleanup()
+                except:
+                    pass
+
             self.after(0, lambda: self.on_automation_complete(False, error_message))
 
     def on_automation_complete(self, success, error_message=None):
